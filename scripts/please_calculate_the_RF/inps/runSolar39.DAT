@@ -1,0 +1,19 @@
+data_files_path ../libRadtran-2.0.6/data
+atmosphere_file ../libRadtran-2.0.6/data/atmmod/afglus.dat
+source solar ../libRadtran-2.0.6/data/solar_flux/atlas_plus_modtran
+
+time 2022 06 03 11 00 00
+latitude N 52 12 20.1
+longitude E 0 07 34.4
+albedo 0.3
+
+rte_solver twostr
+pseudospherical
+mol_abs_param fu
+
+ic_file 1D ./clouds/cloud39.DAT
+ic_properties yang
+ic_habit droxtal
+
+zout TOA
+quiet

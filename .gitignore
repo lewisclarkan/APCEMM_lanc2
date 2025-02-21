@@ -31,6 +31,9 @@ unittest
 *.rar
 *.tar
 *.zip
+*.pkl
+*.DAT
+*.nc
 
 # Logs #
 ########
@@ -58,9 +61,12 @@ Code*/build
 Code*/trash
 Code*/lib*
 Code*/debug*
+build/*
 rundirs/*
 !rundirs/SampleRunDir
 !rundirs/CreateRunFolder.sh
+scripts/libRadtran-2.0.6/*
+scripts/final/flight_data/*
 
 # netCDF files #
 ################

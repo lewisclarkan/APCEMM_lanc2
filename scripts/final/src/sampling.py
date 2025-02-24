@@ -59,7 +59,7 @@ def generateFlight(flight):
 
     df=pd.DataFrame()
 
-    # TO-DO: see if there is a better way to do this, especially altitude
+    # TODO: see if there is a better way to do this, especially altitude
     df["latitude"] = np.array([flight["latitude_1"], flight["latitude_2"]])
     df["longitude"] = np.array([flight["longitude_1"], flight["longitude_2"]])
     df["time"] = np.array([flight["firstseen"], flight["lastseen"]])

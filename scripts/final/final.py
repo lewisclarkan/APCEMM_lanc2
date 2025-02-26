@@ -28,15 +28,6 @@ from alive_progress import alive_bar
 from src.sampling import calcTotalDistance, samplePoint, generateFlight
 from src.geodata import open_dataset_from_sample
 
-
-
-
-
-
-
-
-
-
 if __name__ == "__main__":
 
     print("Starting final.py...\n")
@@ -143,8 +134,8 @@ if __name__ == "__main__":
     #                                              #
     ################################################
 
-    dt_integration = pd.Timedelta(minutes=6)
-    max_age = pd.Timedelta(hours=0.5)
+    dt_integration = pd.Timedelta(minutes=2)
+    max_age = pd.Timedelta(hours=6)
 
     params = {
         "dt_integration": dt_integration,

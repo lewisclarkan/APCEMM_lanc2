@@ -12,6 +12,7 @@ from pycontrails.models.dry_advection import DryAdvection
 from pycontrails.core import met_var, GeoVectorDataset, models, vector
 from pycontrails.physics import constants, thermo, units
 from pycontrails.datalib.ecmwf import ERA5ARCO
+from pycontrails.datalib.ecmwf import ERA5, ERA5ModelLevel
 
 from pycontrails import Flight
 from pycontrails.datalib.ecmwf import ERA5
@@ -19,6 +20,7 @@ from pycontrails.models.cocip import Cocip
 from pycontrails.models.dry_advection import DryAdvection
 from pycontrails.models.humidity_scaling import ConstantHumidityScaling
 from pycontrails.datalib.ecmwf import ERA5ModelLevel
+from pycontrails import MetDataset
 
 
 def open_dataset_from_sample(sample):
@@ -27,17 +29,24 @@ def open_dataset_from_sample(sample):
 
     s_index, s_longitude, s_latitude, s_altitude, s_time, s_type = sample
 
-    max_life = 2
+    max_life = 6
 
     time = (str(s_time), str(s_time + np.timedelta64(max_life, 'h')))
 
-    arcoera5 = ERA5ARCO(
+    era5ml = ERA5ModelLevel(
         time=time,
-        variables= ['t', 'q', 'u', 'v', 'w', 'ciwc', 'z', 'cc'],
-        cachestore=None,
+        variables=("t", "q", "u", "v", "w", "ciwc"),
+        grid=1,  # horizontal resolution, 0.25 by default
+        model_levels=range(70, 91),
+        pressure_levels=np.arange(170, 400, 10),
     )
-    
-    met = arcoera5.open_metdataset()
+    met_t = era5ml.open_metdataset()
+
+    geopotential = met_t.data.coords["altitude"].data * 9.8 
+
+    ds = met_t.data.assign_coords(geopotential=("geopotential", geopotential))
+
+    met = MetDataset(ds)
 
     return met
 

@@ -1,32 +1,12 @@
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import xarray as xr
-import cartopy.crs as ccrs
 
-import random
-import time
-
-import dask.config
-
-from pycontrails import Flight
-from pycontrails.datalib.ecmwf import ERA5
-from pycontrails.models.cocip import Cocip
-from pycontrails.models.apcemm import APCEMM
-from pycontrails.models.dry_advection import DryAdvection
-from pycontrails.core import met_var, GeoVectorDataset, models, vector
-from pycontrails.physics import constants, thermo, units
-from pycontrails.datalib.ecmwf import ERA5ARCO
-
-from pycontrails import Flight
-from pycontrails.datalib.ecmwf import ERA5
-from pycontrails.models.cocip import Cocip
-from pycontrails.models.dry_advection import DryAdvection
-from pycontrails.models.humidity_scaling import ConstantHumidityScaling
 from alive_progress import alive_bar
 
 from src.sampling import calcTotalDistance, samplePoint, generateFlight
-from src.geodata import open_dataset_from_sample
+from src.geodata import open_dataset_from_sample, run_DryAdvection_and_met
 
 if __name__ == "__main__":
 
@@ -97,7 +77,7 @@ if __name__ == "__main__":
     df_samples_by_time = df_samples.sort_values('time')
 
     ######################################################################################################################
-    #                                           Meteo data and advection                                                 # 
+    #                                     Meteorology data and advection model                                           # 
     ######################################################################################################################
 
     sample = df_samples_by_time.iloc[0,:]
@@ -105,56 +85,5 @@ if __name__ == "__main__":
     print("Downloading and opening dataset...\n")
     met = open_dataset_from_sample(sample)
 
-    ################################################
-    # Let's artificially set the flight parameters #
-    ################################################
-
-    flight_attrs = {
-        "flight_id": "test",
-        "true_airspeed": 230,
-        "thrust": 0.22, 
-        "nvpm_ei_n": 1.897462e15, 
-        "aircraft_type": "E190",
-        "wingspan": 48,
-        "n_engine": 2,
-    }
-
-    df_fl = pd.DataFrame()
-    df_fl["longitude"]          = np.linspace(sample["longitude"], sample["longitude"], 1)
-    df_fl["latitude"]           = np.linspace(sample["latitude"], sample["latitude"], 1)
-    df_fl["altitude"]           = np.linspace(10900, 10900, 1)
-    df_fl["engine_efficiency"]  = np.linspace(0.34, 0.34, 1)
-    df_fl["fuel_flow"]          = np.linspace(2.1, 2.1, 1)  # kg/s
-    df_fl["aircraft_mass"]      = np.linspace(154445, 154445, 1)  # kg
-    df_fl["time"]               = pd.date_range(sample["time"], sample["time"], periods=1)
-
-    fl = Flight(df_fl, attrs=flight_attrs)
-
-    ################################################
-    #                                              #
-    ################################################
-
-    dt_integration = pd.Timedelta(minutes=2)
-    max_age = pd.Timedelta(hours=6)
-
-    params = {
-        "dt_integration": dt_integration,
-        "max_age": max_age,
-        "depth": 1.0,  # initial plume depth, [m]
-        "width": 1.0,  # initial plume width, [m]
-    }
-
     print("Running DryAdvection model...\n")
-    dry_adv = DryAdvection(met, params)
-    dry_adv_df = dry_adv.eval(fl).dataframe
-
-    ax = plt.axes()
-
-    ax.scatter(fl["longitude"], fl["latitude"], s=3, color="red", label="Flight path")
-    ax.scatter(
-        dry_adv_df["longitude"], dry_adv_df["latitude"], s=0.1, color="purple", label="Plume evolution"
-    )
-    ax.legend()
-    ax.set_title("Flight path and plume evolution under dry advection")
-
-    plt.savefig("test.png")
+    run_DryAdvection_and_met(sample, met)

@@ -2,11 +2,12 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import yaml
 
 from pycontrails import Flight
 
 from src.aircraft import set_flight_parameters
-from src.generate_yaml import generate_yaml
+from src.generate_yaml import generate_yaml_d
 from src.geodata import open_dataset, advect
 from src.sampling import generateDfSamples
 
@@ -52,17 +53,21 @@ if __name__ == "__main__":
         identifier = i
         sample = df_samples_by_time.iloc[i,:]
 
+
+        # Download the dataset from CDS and open it
         print("Downloading and opening dataset...\n")
         met = open_dataset(sample)
 
+        # Create the pycontrails flight object (and set EIs etc.)
         fl = set_flight_parameters(sample)
 
+        # Run DryAdvection model and generate the input .nc file
         print("Running DryAdvection model...\n")
-        ds = advect(sample, met, fl)
+        ds, pressure = advect(met, fl)
         ds.to_netcdf(f"mets/input{i}.nc")
 
-        #generate_yaml(
-        #    identifier=identifier
-        #    pressure=
-        #)
+        # Generate the .yaml input file dictionary and output to file
+        d = generate_yaml_d(identifier, sample, fl, float(pressure/100))
+        with open(f'yamls/input{i}.yaml', 'w') as yaml_file:
+            yaml.dump(d, yaml_file, default_flow_style=False, sort_keys=False)
 

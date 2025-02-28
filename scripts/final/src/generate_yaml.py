@@ -1,21 +1,14 @@
 import yaml
+import pandas as pd
+from pycontrails import Flight
 
-def generate_yaml(
-        
-    identifier = 0,
+def generate_yaml_d(identifier, sample, fl, pressure):
 
-    pressure = 265,         # [hPa]
+    longitude = sample["longitude"]
+    latitude = sample["latitude"]
 
-    longitude = -15,       # [deg]
-    latitude = 60,         # [deg]
-    emission_day = 81,     # [1-365]
-    emission_time = 8,     # [h]
-
-    aircraft_type = '',
-    engine_type = '',
-    fuel_type = '',
-    
-    ):
+    emission_day = sample["time"].day
+    emission_time = sample["time"].hour
 
     output_folder = 'APCEMM_out/'
     input_background_condition = '../../input_data/init.txt'
@@ -189,7 +182,4 @@ def generate_yaml(
                              'Tropopause Pressure [Pa] (double)': 2.0e+4}
     }                                  
 
-    with open('result.yaml', 'w') as yaml_file:
-        yaml.dump(d, yaml_file, default_flow_style=False, sort_keys=False)
-
-generate_yaml()
+    return d

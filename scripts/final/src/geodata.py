@@ -43,7 +43,7 @@ def open_dataset(sample):
 
     return met
 
-def advect(sample, met, fl):
+def advect(met, fl):
 
     dt_input_met = np.time_delta64 = np.timedelta64(1, "m")
 
@@ -105,7 +105,7 @@ def advect(sample, met, fl):
         dz_m=200,
         interp_kwargs={'method':'linear'})
 
-    return ds
+    return ds, air_pressure[0]
 
 
 

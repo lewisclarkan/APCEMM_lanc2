@@ -1,8 +1,9 @@
-import yaml
 import pandas as pd
 from pycontrails import Flight
 
 def generate_yaml_d(identifier, sample, fl, pressure):
+
+    met_file_path = f"../mets/input{identifier}.nc"
 
     longitude = sample["longitude"]
     latitude = sample["latitude"]
@@ -10,15 +11,15 @@ def generate_yaml_d(identifier, sample, fl, pressure):
     emission_day = sample["time"].day
     emission_time = sample["time"].hour
 
-    output_folder = 'APCEMM_out/'
-    input_background_condition = '../../input_data/init.txt'
-    intput_engine_emissions = '../../input_data/ENG_EI.txt'
+    output_folder = f'../APCEMM_results/APCEMM_out_{identifier}/'
+    input_background_condition = '../../../input_data/init.txt'
+    intput_engine_emissions = '../../../input_data/ENG_EI.txt'
     force_seed_value = 'F'
     seed_value = 0
 
     plume_time = 24         # [h]
-    temperature = 0         # [K], can be overwritten by met
-    RHw = 0                 # [%], can be overwritten by met
+    temperature = 217       # [K], can be overwritten by met
+    RHw = 63.94             # [%], can be overwritten by met
 
     horiz_diff_coeff = 15.0 # [m^2/s]
     verti_diff_coeff = 0.15 # [m^2/s], can be overwritten by met
@@ -35,6 +36,8 @@ def generate_yaml_d(identifier, sample, fl, pressure):
     transport_time_step = 5    # [min]
 
     ice_growth_time_step = 5   # [min]
+
+    input_timestep = 0.1 # hours
 
     # Depending on aircraft type, fuel type and engine type, 
     # calculate the emission indices, fuel flow, aircraft mass,
@@ -130,8 +133,8 @@ def generate_yaml_d(identifier, sample, fl, pressure):
                         'Turn on ice growth (T/F)': 'T',
                         'Ice growth timestep [min] (double)': ice_growth_time_step},
     'METEOROLOGY MENU':  {'METEOROLOGICAL INPUT SUBMENU' : {'Use met. input (T/F)': 'T',
-                                                          'Met input file path (string)': 'example_met_file.nc',
-                                                          'Time series data timestep [hr] (double)': 1.0,
+                                                          'Met input file path (string)': met_file_path,
+                                                          'Time series data timestep [hr] (double)': input_timestep,
                                                           'Init temp. from met. (T/F)': 'T',
                                                           'Temp. time series input (T/F)': 'T',
                                                           'Interpolate temp. met. data (T/F)': 'T',

@@ -5,6 +5,8 @@ import xarray as xr
 import zarr
 import yaml
 
+#from aircraft import set_flight_parameters
+
 from pycontrails import Flight
 from pycontrails.models.dry_advection import DryAdvection
 from pycontrails.core import met_var, GeoVectorDataset, models
@@ -24,7 +26,7 @@ def open_dataset(sample):
     era5ml = ERA5ModelLevel(
         time=time,
         variables=("t", "q", "u", "v", "w", "ciwc"),
-        grid=1,  # horizontal resolution, 0.25 by default
+        grid=0.25,  # horizontal resolution, 0.25 by default
         model_levels=range(70, 91),
         pressure_levels=np.arange(170, 400, 10),
     )
@@ -45,7 +47,7 @@ def open_dataset(sample):
 
 def advect(met, fl):
 
-    dt_input_met = np.time_delta64 = np.timedelta64(1, "m")
+    dt_input_met = np.timedelta64(6, "m")
 
     dt_integration = np.timedelta64(2, 'm')
     max_age = np.timedelta64(6, 'h')
@@ -59,7 +61,6 @@ def advect(met, fl):
 
     dry_adv = DryAdvection(met, params)
     dry_adv_df = dry_adv.eval(fl).dataframe
-
     v_wind = dry_adv_df["v_wind"].values
     level = dry_adv_df["level"].values
     vertical_velocity = dry_adv_df["vertical_velocity"].values
@@ -71,7 +72,6 @@ def advect(met, fl):
     lat = dry_adv_df["latitude"].values
     azimuth = dry_adv_df["azimuth"].values
     depth = dry_adv_df["depth"].values
-
     time = dry_adv_df["time"].values
 
     n_profiles = int(max_age / dt_input_met) + 1
@@ -110,17 +110,14 @@ def advect(met, fl):
 
 
 if __name__ == "__main__":
+
+    print("e")
     
-    """df = pd.read_csv("samples/samples.csv", sep='\t')
-    df_samples_by_time = df.sort_values('time')
-    sample = df_samples_by_time.iloc[0,1:]
+    #df = pd.read_csv("samples/samples.csv", sep='\t')
+    #df_samples_by_time = df.sort_values('time')
+    #sample = df_samples_by_time.iloc[0,1:]
 
-    sample['index'] = int(sample['index'])
-    sample['longitude'] = float(sample['longitude'])
-    sample['latitude'] = float(sample['latitude'])
-    sample['altitude'] = float(sample['altitude'])
-    sample['time'] = np.datetime64(sample['time'])
-
-    met = open_dataset_from_sample(sample.values)
-
-    advect(sample, met)"""
+    #fl = set_flight_parameters(sample)
+    #met = open_dataset(sample, values)
+    #ds, pressure = advect(met, fl)
+    #ds.to_netcdf(f"mets/input{0}.nc")

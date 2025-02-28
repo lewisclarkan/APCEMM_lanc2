@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import yaml
+from subprocess import call
 
 from pycontrails import Flight
 
@@ -28,8 +29,8 @@ if __name__ == "__main__":
     ######################################################################################################################
 
     # Set the number of samples and flights
-    n_samples = 100
-    n_flights = 100
+    n_samples = 10
+    n_flights = 10
 
     # TODO: read in multiple pickled files and combine them
     df = pd.read_pickle('flight_data/flightlist_20190101_20190131.pkl')
@@ -45,29 +46,47 @@ if __name__ == "__main__":
     df_samples_by_time = df_samples.sort_values('time')
 
     ######################################################################################################################
-    #                                     Meteorology data and advection model                                           # 
+    #                                             Meteorology data module                                                # 
     ######################################################################################################################
 
-    for i in range(0,10):
+    for i in range(0,20):
 
         identifier = i
         sample = df_samples_by_time.iloc[i,:]
-
 
         # Download the dataset from CDS and open it
         print("Downloading and opening dataset...\n")
         met = open_dataset(sample)
 
+    ######################################################################################################################
+    #                                           Aircraft performance module                                              # 
+    ######################################################################################################################
+
         # Create the pycontrails flight object (and set EIs etc.)
         fl = set_flight_parameters(sample)
 
-        # Run DryAdvection model and generate the input .nc file
+    ######################################################################################################################
+    #                                     Advection model and input files module                                         # 
+    ######################################################################################################################
+
+        # Run DryAdvection model and generate .nc input ds and output to file
         print("Running DryAdvection model...\n")
         ds, pressure = advect(met, fl)
         ds.to_netcdf(f"mets/input{i}.nc")
 
-        # Generate the .yaml input file dictionary and output to file
+        # Generate the .yaml input dictionary and output to file
         d = generate_yaml_d(identifier, sample, fl, float(pressure/100))
         with open(f'yamls/input{i}.yaml', 'w') as yaml_file:
             yaml.dump(d, yaml_file, default_flow_style=False, sort_keys=False)
 
+    ######################################################################################################################
+    #                                               APCEMM module                                                        # 
+    ######################################################################################################################
+
+        apcemm_file_path = "../../build/APCEMM"
+
+        call(["./../../build/APCEMM", f"yamls/input{i}.yaml"])
+
+    ######################################################################################################################
+    #                                          Radiative forcing module                                                  # 
+    ######################################################################################################################

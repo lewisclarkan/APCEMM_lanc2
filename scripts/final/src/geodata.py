@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 import zarr
+import yaml
 
 from pycontrails import Flight
 from pycontrails.models.dry_advection import DryAdvection
@@ -12,10 +13,7 @@ from pycontrails.datalib.ecmwf import ERA5ModelLevel
 from pycontrails import MetDataset
 from pycontrails.models.apcemm import utils
 
-
-def open_dataset_from_sample(sample):
-
-    # Takes an input sample point of [Index, Longitude, Latitude, Altitude, Time, Aircraft Type]
+def open_dataset(sample):
 
     s_index, s_longitude, s_latitude, s_altitude, s_time, s_type = sample
 
@@ -45,38 +43,9 @@ def open_dataset_from_sample(sample):
 
     return met
 
-def run_DryAdvection_and_met(sample, met):
+def advect(sample, met, fl):
 
-    ################################################
-    # Let's artificially set the flight parameters #
-    ################################################
-
-    dt_input_met = np.time_delta64 = np.timedelta64(1, "h")
-
-    flight_attrs = {
-        "flight_id": "test",
-        "true_airspeed": 230,
-        "thrust": 0.22, 
-        "nvpm_ei_n": 1.897462e15, 
-        "aircraft_type": "E190",
-        "wingspan": 48,
-        "n_engine": 2,
-    }
-
-    df_fl = pd.DataFrame()
-    df_fl["longitude"]          = np.linspace(sample["longitude"], sample["longitude"], 1)
-    df_fl["latitude"]           = np.linspace(sample["latitude"], sample["latitude"], 1)
-    df_fl["altitude"]           = np.linspace(10900, 10900, 1)
-    df_fl["engine_efficiency"]  = np.linspace(0.34, 0.34, 1)
-    df_fl["fuel_flow"]          = np.linspace(2.1, 2.1, 1)  # kg/s
-    df_fl["aircraft_mass"]      = np.linspace(154445, 154445, 1)  # kg
-    df_fl["time"]               = pd.date_range(sample["time"], sample["time"], periods=1)
-
-    fl = Flight(df_fl, attrs=flight_attrs)
-
-    ################################################
-    #                                              #
-    ################################################
+    dt_input_met = np.time_delta64 = np.timedelta64(1, "m")
 
     dt_integration = np.timedelta64(2, 'm')
     max_age = np.timedelta64(6, 'h')
@@ -87,7 +56,6 @@ def run_DryAdvection_and_met(sample, met):
         "depth": 1.0,  # initial plume depth, [m]
         "width": 1.0,  # initial plume width, [m]
     }
-
 
     dry_adv = DryAdvection(met, params)
     dry_adv_df = dry_adv.eval(fl).dataframe
@@ -137,13 +105,13 @@ def run_DryAdvection_and_met(sample, met):
         dz_m=200,
         interp_kwargs={'method':'linear'})
 
+    return ds
 
-    path = "mets/input.nc"
-    ds.to_netcdf(path)
+
 
 if __name__ == "__main__":
     
-    df = pd.read_csv("samples/samples.csv", sep='\t')
+    """df = pd.read_csv("samples/samples.csv", sep='\t')
     df_samples_by_time = df.sort_values('time')
     sample = df_samples_by_time.iloc[0,1:]
 
@@ -155,6 +123,4 @@ if __name__ == "__main__":
 
     met = open_dataset_from_sample(sample.values)
 
-    print(met["altitude"])
-
-    run_DryAdvection_and_met(sample, met)
+    advect(sample, met)"""

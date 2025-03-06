@@ -19,14 +19,14 @@ def open_dataset(sample):
 
     s_index, s_longitude, s_latitude, s_altitude, s_time, s_type = sample
 
-    max_life = 7
+    max_life = 12
 
     time = (str(s_time), str(s_time + np.timedelta64(max_life, 'h')))
 
     era5ml = ERA5ModelLevel(
         time=time,
         variables=("t", "q", "u", "v", "w", "ciwc"),
-        grid=0.25,  # horizontal resolution, 0.25 by default
+        grid=1,  # horizontal resolution, 0.25 by default
         model_levels=range(70, 91),
         pressure_levels=np.arange(170, 400, 10),
     )
@@ -50,7 +50,7 @@ def advect(met, fl):
     dt_input_met = np.timedelta64(6, "m")
 
     dt_integration = np.timedelta64(2, 'm')
-    max_age = np.timedelta64(6, 'h')
+    max_age = np.timedelta64(12, 'h')
 
     params = {
         "dt_integration": dt_integration,
@@ -106,18 +106,3 @@ def advect(met, fl):
         interp_kwargs={'method':'linear'})
 
     return ds, air_pressure[0]
-
-
-
-if __name__ == "__main__":
-
-    print("e")
-    
-    #df = pd.read_csv("samples/samples.csv", sep='\t')
-    #df_samples_by_time = df.sort_values('time')
-    #sample = df_samples_by_time.iloc[0,1:]
-
-    #fl = set_flight_parameters(sample)
-    #met = open_dataset(sample, values)
-    #ds, pressure = advect(met, fl)
-    #ds.to_netcdf(f"mets/input{0}.nc")

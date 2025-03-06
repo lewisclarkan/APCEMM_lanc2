@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import yaml
 from subprocess import call
+import os
 
 from pycontrails import Flight
 
@@ -11,7 +12,8 @@ from src.aircraft import set_flight_parameters
 from src.generate_yaml import generate_yaml_d
 from src.geodata import open_dataset, advect
 from src.sampling import generateDfSamples
-
+from src.radiative_forcing import read_apcemm_data, apce_data_struct, calc_sample
+from src.file_management import write_output_header, write_output
 
 if __name__ == "__main__":
 
@@ -29,27 +31,31 @@ if __name__ == "__main__":
     ######################################################################################################################
 
     # Set the number of samples and flights
-    n_samples = 10
-    n_flights = 10
+    n_samples = 100
+    n_flights = 100
 
     # TODO: read in multiple pickled files and combine them
-    df = pd.read_pickle('flight_data/flightlist_20190101_20190131.pkl')
+    df = pd.read_pickle("flight_data/flightlist_20190101_20190131.pkl")
 
     # Randomise the samples
     """df = df.sample(frac=1)"""
 
     # Generate the samples and save them to samples.csv
-    df_samples = generateDfSamples(df, n_samples, n_flights)
-    df_samples.to_csv('samples/samples.csv', sep='\t')
+    #df_samples = generateDfSamples(df, n_samples, n_flights)
+    #df_samples.to_pickle("samples/samples.pkl")
+
+    df_samples = pd.read_pickle("samples/samples.pkl")
 
     # Sort values by time
-    df_samples_by_time = df_samples.sort_values('time')
+    df_samples_by_time = df_samples#.sort_values("time")
 
     ######################################################################################################################
     #                                             Meteorology data module                                                # 
     ######################################################################################################################
 
-    for i in range(0,20):
+    write_output_header()
+
+    for i in range(0, 50): #len(df_samples_by_time)):
 
         identifier = i
         sample = df_samples_by_time.iloc[i,:]
@@ -70,18 +76,34 @@ if __name__ == "__main__":
     ######################################################################################################################
 
         # Run DryAdvection model and generate .nc input ds and output to file
+
+        try: 
+            os.makedirs("mets")
+        except:
+            pass
+
+        try: 
+            os.makedirs("yamls")
+        except:
+            pass
+
         print("Running DryAdvection model...\n")
         ds, pressure = advect(met, fl)
         ds.to_netcdf(f"mets/input{i}.nc")
 
         # Generate the .yaml input dictionary and output to file
         d = generate_yaml_d(identifier, sample, fl, float(pressure/100))
-        with open(f'yamls/input{i}.yaml', 'w') as yaml_file:
+        with open(f"yamls/input{i}.yaml", "w") as yaml_file:
             yaml.dump(d, yaml_file, default_flow_style=False, sort_keys=False)
 
     ######################################################################################################################
     #                                               APCEMM module                                                        # 
     ######################################################################################################################
+
+        try: 
+            os.makedirs("APCEMM_results")
+        except:
+            pass
 
         apcemm_file_path = "../../build/APCEMM"
 
@@ -90,3 +112,27 @@ if __name__ == "__main__":
     ######################################################################################################################
     #                                          Radiative forcing module                                                  # 
     ######################################################################################################################
+
+        apce_data = read_apcemm_data(f"APCEMM_results/APCEMM_out_{i}/")
+
+        try:
+            with open(f"APCEMM_results/APCEMM_out_{i}/status_case0", "r") as f:
+                status = f.readline()
+
+            if (str(status) == "NoPersistence\n"):
+                status = "No persistence "
+                print("No persistence\n")
+                j_per_m = 0
+                age = 0
+            else:
+                j_per_m, age = calc_sample(apce_data, sample)
+                status = "Contrail formed"
+
+        except FileNotFoundError:
+            status = "Error          "
+            j_per_m = 0
+            age = 0
+            continue
+
+            
+        write_output(sample, j_per_m, age, status)

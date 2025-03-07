@@ -317,7 +317,6 @@ def run_libradtran(xs, b_nighttime):
 
         # If it is daytime, we need to run the solar cases
         if (not b_nighttime):
-            print("Running daytime cases")
             os.system(f"../libRadtran-2.0.6/bin/uvspec < {inpSolar} > {diector2}")
             os.system(f"../libRadtran-2.0.6/bin/uvspec < {inp_clearSolar} > {diector4}")
 
@@ -424,52 +423,37 @@ def get_ice_habit(age):
 
     return ice_habit
 
-def calc_sample(apce_data, sample):
-
-    # TODO IF APCEMM resulted in no contrail, return zero
+def calc_sample(apce_data, sample, met_albedo):
     
-    # Get the sample time in the format required by libRadtran i.e. "YYYY MM DD HH MM SS"
-    temp_time = [sample["time"].year, sample["time"].month, sample["time"].day, sample["time"].hour, sample["time"].minute, sample["time"].second]
-    init_time = (f"{temp_time[0]} {temp_time[1]} {temp_time[2]} {temp_time[3]} {temp_time[4]} {temp_time[5]} ")          
-
-    # Array that holds the times after init_time that APCEMM was evaluated (in mins)
+    ds_t = apce_data.ds_t
     t = apce_data.t
 
     timestep = t[1] - t[0]
 
-    # Dataset holding the full results
-    ds_t = apce_data.ds_t
-
-    # Get the sample latitude and longitude in the DMS format with N/E/S/W at start
     latitude, longitude = gen_lat_lon(sample)     
-
-    # Get the altitude in m
     altitude = sample["altitude"]       
 
-    # TODO make these a function of meteo conditions
-    atmosphere_file_path = "../libRadtran-2.0.6/data/atmmod/afglus.dat"            
     solar_source_path = "../libRadtran-2.0.6/data/solar_flux/atlas_plus_modtran"
     data_files_path = "../libRadtran-2.0.6/data"
-    albedo = 0.3 
+    atmosphere_file_path = "../libRadtran-2.0.6/data/atmmod/afglus.dat"            
 
     samples = 15 
 
     total_w_per_m_s = []
-    w_per_m_s = []
-    diff_s = []
 
     j=0
 
-    #for ds_tt in ds_t:
-    #for ds_tt in ds_t:
-
     for ds_tt in ds_t:
 
+        albedo = met_albedo['fal'].data.sel(longitude=sample["longitude"], latitude=sample["latitude"], time ='2024-03-01T13:00:00.000000000', level=-1, method='nearest').values
+
         age = t[j]
+        print(age)
         sample_time = sample["time"] + pd.Timedelta(minutes=age)
 
-        sample_temp_time = [sample_time.year, sample_time.month, sample_time.day, sample_time.hour, sample_time.minute, sample_time.second]
-        sample_time2 = (f"{sample_temp_time[0]} {sample_temp_time[1]} {sample_temp_time[2]} {sample_temp_time[3]} {sample_temp_time[4]} {sample_temp_time[5]} ")
+        # Get the sample time in the format required by libRadtran i.e. "YYYY MM DD HH MM SS"
+        sample_time_array = [sample_time.year, sample_time.month, sample_time.day, sample_time.hour, sample_time.minute, sample_time.second]
+        sample_time_format = (f"{sample_time_array[0]} {sample_time_array[1]} {sample_time_array[2]} {sample_time_array[3]} {sample_time_array[4]} {sample_time_array[5]} ")
 
         b_nighttime = check_night(sample_time, sample["latitude"], sample["longitude"])
 
@@ -478,12 +462,10 @@ def calc_sample(apce_data, sample):
         IWCs_avg, Eff_rads_avg, ys = adjust_altitude(IWCs_avg, Eff_rads_avg, ys, altitude)
         
         habit = write_cloud_files(IWCs_avg, Eff_rads_avg, ys, age)
-        write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, sample_time2, latitude, longitude, albedo, habit, xs)
+        write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, sample_time_format, latitude, longitude, albedo, habit, xs)
 
         total_w_per_m = run_libradtran(xs, b_nighttime)
-
         total_w_per_m_s.append(total_w_per_m)
-
         j = j + 1
 
     j_per_m = sum(total_w_per_m_s) * timestep

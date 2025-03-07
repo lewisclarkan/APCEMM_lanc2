@@ -10,7 +10,7 @@ from pycontrails import Flight
 
 from src.aircraft import set_flight_parameters
 from src.generate_yaml import generate_yaml_d
-from src.geodata import open_dataset, advect
+from src.geodata import open_dataset, advect, get_albedo
 from src.sampling import generateDfSamples
 from src.radiative_forcing import read_apcemm_data, apce_data_struct, calc_sample
 from src.file_management import write_output_header, write_output
@@ -54,6 +54,8 @@ if __name__ == "__main__":
     ######################################################################################################################
 
     write_output_header()
+
+    met_albedo = get_albedo('albedo.grib')
 
     for i in range(0, 50): #len(df_samples_by_time)):
 
@@ -125,7 +127,7 @@ if __name__ == "__main__":
                 j_per_m = 0
                 age = 0
             else:
-                j_per_m, age = calc_sample(apce_data, sample)
+                j_per_m, age = calc_sample(apce_data, sample, met_albedo)
                 status = "Contrail formed"
 
         except FileNotFoundError:
@@ -134,5 +136,4 @@ if __name__ == "__main__":
             age = 0
             continue
 
-            
         write_output(sample, j_per_m, age, status)

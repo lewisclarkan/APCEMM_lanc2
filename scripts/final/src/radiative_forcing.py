@@ -163,7 +163,6 @@ def write_cloud_files(IWCs_avg, Eff_rads_avg, ys, age):
 
     return habit
 
-
 def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, time, latitude, longitude, albedo, ice_habit, xs):
 
     solver = "disort"
@@ -462,6 +461,7 @@ def calc_sample(apce_data, sample, met_albedo):
         IWCs_avg, Eff_rads_avg, ys = adjust_altitude(IWCs_avg, Eff_rads_avg, ys, altitude)
         
         habit = write_cloud_files(IWCs_avg, Eff_rads_avg, ys, age)
+
         write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, sample_time_format, latitude, longitude, albedo, habit, xs)
 
         total_w_per_m = run_libradtran(xs, b_nighttime)

@@ -13,7 +13,7 @@ from pycontrails import Flight
 from pycontrails.models.dry_advection import DryAdvection
 from pycontrails.core import met_var, GeoVectorDataset, models
 from pycontrails.physics import constants, thermo, units
-from pycontrails.datalib.ecmwf import ERA5ModelLevel
+from pycontrails.datalib.ecmwf import ERA5ModelLevel, ERA5
 from pycontrails import MetDataset
 from pycontrails.models.apcemm import utils
 from typing import Any
@@ -29,11 +29,41 @@ def open_dataset(sample):
 
     era5ml = ERA5ModelLevel(
         time=time,
-        variables=("t", "q", "u", "v", "w", "ciwc"),
+        variables=("t", "q", "u", "v", "w", "clwc"),
         grid=1,  # horizontal resolution, 0.25 by default
         model_levels=range(70, 91),
         pressure_levels=np.arange(170, 400, 10),
     )
+    met_t = era5ml.open_metdataset()
+
+    geopotential = met_t.data.coords["altitude"].data
+
+    temp1 = np.repeat(geopotential, len(met_t.data.coords["time"]))
+    temp2 = np.tile(temp1, len(met_t.data.coords["longitude"])*len(met_t.data.coords["latitude"]))
+
+    geopotential_4d = np.reshape(temp2, (len(met_t.data.coords["longitude"]),len(met_t.data.coords["latitude"]),len(met_t.data.coords["level"]),len(met_t.data.coords["time"])))
+
+    ds = met_t.data.assign(geopotential_height=(met_t.data["air_temperature"].dims, geopotential_4d))
+
+    met = MetDataset(ds)
+
+    return met
+
+def get_temperature_and_clouds_met(sample):
+
+    s_index, s_longitude, s_latitude, s_altitude, s_time, s_type = sample
+
+    max_life = 12
+
+    time = (str(s_time), str(s_time + np.timedelta64(max_life, 'h')))
+
+    era5ml = ERA5ModelLevel(
+        time=time,
+        variables=["t"],
+        model_levels=np.arange(1, 139, 1),
+        pressure_levels=[1000,750,500,400,300,250,200,150,100,70,50,30,20,10,5,1],
+        grid=1,
+        ) 
     met_t = era5ml.open_metdataset()
 
     geopotential = met_t.data.coords["altitude"].data
@@ -110,6 +140,144 @@ def normal_wind_shear(
     sin_az = np.sin(az_radians)
     cos_az = np.cos(az_radians)
     return sin_az * dv_dz - cos_az * du_dz
+
+def generate_temp_profile(
+    time: np.ndarray,
+    longitude: np.ndarray,
+    latitude: np.ndarray,
+    azimuth: np.ndarray,
+    altitude: np.ndarray,
+    met: MetDataset,
+    humidity_scaling,
+    dz_m: float,
+    interp_kwargs: dict[str, Any],
+) -> xr.Dataset:
+
+    # Ensure that altitudes are sorted ascending
+    altitude = np.sort(altitude)
+
+    # Check for required fields in met
+    vars = (
+        met_var.AirTemperature,
+        met_var.GeopotentialHeight,
+    )
+    met.ensure_vars(vars)
+    met.standardize_variables(vars)
+
+    # Flatten input arrays
+    time = time.ravel()
+    longitude = longitude.ravel()
+    latitude = latitude.ravel()
+    azimuth = azimuth.ravel()
+    altitude = altitude.ravel()
+
+    # Estimate pressure levels close to target altitudes
+    # (not exact because this assumes the ISA temperature profile)
+    pressure = units.m_to_pl(altitude) * 1e2
+
+    # Broadcast to required shape and create vector for initial interpolation
+    # onto original pressure levels at target horizontal location.
+    shape = (time.size, altitude.size)
+    time = np.broadcast_to(time[:, np.newaxis], shape).ravel()
+    longitude = np.broadcast_to(longitude[:, np.newaxis], shape).ravel()
+    latitude = np.broadcast_to(latitude[:, np.newaxis], shape).ravel()
+    azimuth = np.broadcast_to(azimuth[:, np.newaxis], shape).ravel()
+    level = np.broadcast_to(pressure[np.newaxis, :] / 1e2, shape).ravel()
+    vector = GeoVectorDataset(
+        data={"azimuth": azimuth},
+        longitude=longitude,
+        latitude=latitude,
+        level=level,
+        time=time,
+    )
+
+    # Downselect met before interpolation
+    met = vector.downselect_met(met)
+
+    # Interpolate meteorology data onto vector
+    scale_humidity = humidity_scaling is not None and "specific_humidity" not in vector
+    for met_key in (
+        "air_temperature",
+        "geopotential_height",
+    ):
+        models.interpolate_met(met, vector, met_key, **interp_kwargs)
+
+    # Interpolate winds at lower level for shear calculation
+    air_pressure_lower = thermo.pressure_dz(vector["air_temperature"], vector.air_pressure, dz_m)
+    lower_level = air_pressure_lower / 100.0
+
+    # Apply humidity scaling
+    if scale_humidity and humidity_scaling is not None:
+        humidity_scaling.eval(vector, copy_source=False)
+
+    # Compute RHi and segment-normal shear
+
+    # Reshape interpolated fields to (time, level).
+    nlev = altitude.size
+    ntime = len(vector) // nlev
+    shape = (ntime, nlev)
+    time = np.unique(vector["time"])
+    time = (time - time[0]) / np.timedelta64(1, "h")
+    temperature = vector["air_temperature"].reshape(shape)
+    z = vector["geopotential_height"].reshape(shape)
+
+    # Interpolate fields to target altitudes profile-by-profile
+    # to obtain 2D arrays with dimensions (time, altitude).
+    temperature_on_z = np.zeros(shape, dtype=temperature.dtype)
+
+    # Fields should already be on pressure levels close to target
+    # altitudes, so this just uses linear interpolation and constant
+    # extrapolation on fields expected by APCEMM.
+    # NaNs are preserved at the start and end of interpolated profiles
+    # but removed in interiors.
+    def interp(z: np.ndarray, z0: np.ndarray, f0: np.ndarray) -> np.ndarray:
+        # mask nans
+        mask = np.isnan(z0) | np.isnan(f0)
+        if np.all(mask):
+            msg = (
+                "Found all-NaN profile during APCEMM meterology input file creation. "
+                "MetDataset may have insufficient spatiotemporal coverage."
+            )
+            raise ValueError(msg)
+        z0 = z0[~mask]
+        f0 = f0[~mask]
+
+        # interpolate
+        assert np.all(np.diff(z0) > 0)  # expect increasing altitudes
+        fi = np.interp(z, z0, f0, left=f0[0], right=f0[-1])
+
+        # restore nans at start and end of profile
+        if mask[0]:  # nans at top of profile
+            fi[z > z0.max()] = np.nan
+        if mask[-1]:  # nans at end of profile
+            fi[z < z0.min()] = np.nan
+        return fi
+
+    # The manual for loop is unlikely to be a bottleneck since a
+    # substantial amount of work is done within each iteration.
+    for i in range(ntime):
+        temperature_on_z[i, :] = interp(altitude, z[i, :], temperature[i, :])
+
+    # APCEMM also requires initial pressure profile
+    pressure_on_z = interp(altitude, z[0, :], pressure)
+
+    # Create APCEMM input dataset.
+    # Transpose require because APCEMM expects (altitude, time) arrays.
+    return xr.Dataset(
+        data_vars={
+            "pressure": (("altitude",), pressure_on_z.astype("float32") / 1e2, {"units": "hPa"}),
+            "temperature": (
+                ("altitude", "time"),
+                temperature_on_z.astype("float32").T,
+                {"units": "K"},
+            ),
+            
+        },
+        coords={
+            "altitude": ("altitude", altitude.astype("float32") / 1e3, {"units": "km"}),
+            "time": ("time", time, {"units": "hours"}),
+        },
+    )
 
 def generate_apcemm_input_met(
     time: np.ndarray,
@@ -350,7 +518,7 @@ def generate_apcemm_input_met(
         },
     )
 
-def advect(met, fl):
+def advect(met, met_temp, fl):
 
     dt_input_met = np.timedelta64(6, "m")
 
@@ -366,17 +534,10 @@ def advect(met, fl):
 
     dry_adv = DryAdvection(met, params)
     dry_adv_df = dry_adv.eval(fl).dataframe
-    v_wind = dry_adv_df["v_wind"].values
-    level = dry_adv_df["level"].values
-    vertical_velocity = dry_adv_df["vertical_velocity"].values
     air_pressure = dry_adv_df["air_pressure"].values
-    air_temperature = dry_adv_df["air_temperature"].values
     lon = dry_adv_df["longitude"].values
-    age = dry_adv_df["age"].values
-    u_wind = dry_adv_df["u_wind"].values
     lat = dry_adv_df["latitude"].values
     azimuth = dry_adv_df["azimuth"].values
-    depth = dry_adv_df["depth"].values
     time = dry_adv_df["time"].values
 
     n_profiles = int(max_age / dt_input_met) + 1
@@ -398,6 +559,7 @@ def advect(met, fl):
     interp_az = np.interp(target_elapsed, elapsed, azimuth)
 
     altitude = met["altitude"].values
+    altitude_temp = met_temp["altitude"].values
 
     ds = generate_apcemm_input_met(
         time=target_time,
@@ -409,8 +571,20 @@ def advect(met, fl):
         humidity_scaling=None,
         dz_m=200,
         interp_kwargs={'method':'linear'})
+    
+    ds_temp = generate_temp_profile(
+        time=target_time,
+        longitude=interp_lon,
+        latitude=interp_lat,
+        azimuth=interp_az,
+        altitude=altitude_temp,
+        met=met_temp,
+        humidity_scaling=None,
+        dz_m=200,
+        interp_kwargs={'method':'linear'})
 
-    return ds, air_pressure[0]
+    return ds, ds_temp, air_pressure[0]
+
 
 """if __name__ == '__main__':
 

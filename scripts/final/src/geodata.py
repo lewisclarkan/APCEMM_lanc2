@@ -17,6 +17,7 @@ from pycontrails.datalib.ecmwf import ERA5ModelLevel, ERA5
 from pycontrails import MetDataset
 from pycontrails.models.apcemm import utils
 from typing import Any
+from scipy.interpolate import NearestNDInterpolator
 
 
 def open_dataset(sample):
@@ -29,7 +30,7 @@ def open_dataset(sample):
 
     era5ml = ERA5ModelLevel(
         time=time,
-        variables=("t", "q", "u", "v", "w", "clwc"),
+        variables=("t", "q", "u", "v", "w"),
         grid=1,  # horizontal resolution, 0.25 by default
         model_levels=range(70, 91),
         pressure_levels=np.arange(170, 400, 10),
@@ -59,11 +60,12 @@ def get_temperature_and_clouds_met(sample):
 
     era5ml = ERA5ModelLevel(
         time=time,
-        variables=["t"],
-        model_levels=np.arange(1, 139, 1),
-        pressure_levels=[1000,750,500,400,300,250,200,150,100,70,50,30,20,10,5,1],
+        variables=["t","clwc","ciwc"],
+        model_levels=np.arange(1, 138, 1),
+        pressure_levels=[1000,975,950,925,900,875,850,825,800,750,700,650,600,550,500,450,400,350,300,250,200,150,100,70,50,30,20,10,5,1],
         grid=1,
         ) 
+    
     met_t = era5ml.open_metdataset()
 
     geopotential = met_t.data.coords["altitude"].data
@@ -199,6 +201,8 @@ def generate_temp_profile(
     for met_key in (
         "air_temperature",
         "geopotential_height",
+        "specific_cloud_liquid_water_content",
+        "specific_cloud_ice_water_content",
     ):
         models.interpolate_met(met, vector, met_key, **interp_kwargs)
 
@@ -219,11 +223,15 @@ def generate_temp_profile(
     time = np.unique(vector["time"])
     time = (time - time[0]) / np.timedelta64(1, "h")
     temperature = vector["air_temperature"].reshape(shape)
+    specific_cloud_liquid_water_content = vector["specific_cloud_liquid_water_content"].reshape(shape)
+    specific_cloud_ice_water_content = vector["specific_cloud_ice_water_content"].reshape(shape)
     z = vector["geopotential_height"].reshape(shape)
 
     # Interpolate fields to target altitudes profile-by-profile
     # to obtain 2D arrays with dimensions (time, altitude).
     temperature_on_z = np.zeros(shape, dtype=temperature.dtype)
+    specific_cloud_liquid_water_content_on_z = np.zeros(shape, dtype=specific_cloud_liquid_water_content.dtype)
+    specific_cloud_ice_water_content_on_z = np.zeros(shape, dtype=specific_cloud_ice_water_content.dtype)
 
     # Fields should already be on pressure levels close to target
     # altitudes, so this just uses linear interpolation and constant
@@ -257,6 +265,8 @@ def generate_temp_profile(
     # substantial amount of work is done within each iteration.
     for i in range(ntime):
         temperature_on_z[i, :] = interp(altitude, z[i, :], temperature[i, :])
+        specific_cloud_liquid_water_content_on_z[i, :] = interp(altitude, z[i, :], specific_cloud_liquid_water_content[i, :])
+        specific_cloud_ice_water_content_on_z[i, :] = interp(altitude, z[i, :], specific_cloud_ice_water_content[i, :])
 
     # APCEMM also requires initial pressure profile
     pressure_on_z = interp(altitude, z[0, :], pressure)
@@ -264,15 +274,11 @@ def generate_temp_profile(
     # Create APCEMM input dataset.
     # Transpose require because APCEMM expects (altitude, time) arrays.
     return xr.Dataset(
-        data_vars={
-            "pressure": (("altitude",), pressure_on_z.astype("float32") / 1e2, {"units": "hPa"}),
-            "temperature": (
-                ("altitude", "time"),
-                temperature_on_z.astype("float32").T,
-                {"units": "K"},
-            ),
-            
-        },
+        data_vars={"pressure": (("altitude",), pressure_on_z.astype("float32") / 1e2, {"units": "hPa"}),
+            "temperature": (("altitude", "time"),temperature_on_z.astype("float32").T,{"units": "K"}),
+            "specific_cloud_liquid_water_content": (("altitude", "time"),specific_cloud_liquid_water_content_on_z.astype("float32").T,{"units": "kg/kg"}),  
+            "specific_cloud_ice_water_content": (("altitude", "time"),specific_cloud_ice_water_content_on_z.astype("float32").T,{"units": "kg/kg"}),
+            },
         coords={
             "altitude": ("altitude", altitude.astype("float32") / 1e3, {"units": "km"}),
             "time": ("time", time, {"units": "hours"}),
@@ -518,10 +524,20 @@ def generate_apcemm_input_met(
         },
     )
 
+def fix_NaNs(ds):
+
+    indices = np.where(np.isfinite(ds["temperature"]))
+    interp = NearestNDInterpolator(np.transpose(indices), ds["temperature"].values[indices])
+    ds["temperature"][...] = interp(*np.indices(ds["temperature"].shape)) 
+
+    ds["specific_cloud_liquid_water_content"] = ds["specific_cloud_liquid_water_content"].fillna(0)
+    ds["specific_cloud_ice_water_content"] = ds["specific_cloud_ice_water_content"].fillna(0)
+
+    return ds
+
 def advect(met, met_temp, fl):
 
     dt_input_met = np.timedelta64(6, "m")
-
     dt_integration = np.timedelta64(2, 'm')
     max_age = np.timedelta64(12, 'h')
 
@@ -533,7 +549,15 @@ def advect(met, met_temp, fl):
     }
 
     dry_adv = DryAdvection(met, params)
+
     dry_adv_df = dry_adv.eval(fl).dataframe
+
+    # We re-set the max-age parameter to the maximum age that the DryAdvection model has calculated.
+    # This ensures that for DryAdvection models that terminate early, whilst generating the APCEMM
+    # input files we do not get NaN errors (that are found in the final entry of dry_adv_df) when
+    # the DryAdvection model terminates early. 
+    max_age = list(dry_adv_df["time"].values)[-2] - dry_adv_df["time"].min()
+
     air_pressure = dry_adv_df["air_pressure"].values
     lon = dry_adv_df["longitude"].values
     lat = dry_adv_df["latitude"].values
@@ -582,6 +606,8 @@ def advect(met, met_temp, fl):
         humidity_scaling=None,
         dz_m=200,
         interp_kwargs={'method':'linear'})
+    
+    ds_temp = fix_NaNs(ds_temp)
 
     return ds, ds_temp, air_pressure[0]
 

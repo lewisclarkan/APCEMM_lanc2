@@ -10,7 +10,7 @@ from pycontrails import Flight
 
 from src.aircraft import set_flight_parameters
 from src.generate_yaml import generate_yaml_d
-from src.geodata import open_dataset, advect, get_albedo, get_temperature_met, generate_temp_profile
+from src.geodata import open_dataset, advect, get_albedo, get_temperature_and_clouds_met, generate_temp_profile
 from src.sampling import generateDfSamples
 from src.radiative_forcing import read_apcemm_data, apce_data_struct, calc_sample
 from src.file_management import write_output_header, write_output
@@ -31,11 +31,11 @@ if __name__ == "__main__":
     ######################################################################################################################
 
     # Set the number of samples and flights
-    n_samples = 100
-    n_flights = 100
+    #n_samples = 100
+    #n_flights = 100
 
     # TODO: read in multiple pickled files and combine them
-    #df = pd.read_pickle("flight_data/flightlist_20190101_20190131.pkl")
+    df = pd.read_pickle("flight_data/flightlist_20190101_20190131.pkl")
 
     # Randomise the samples
     """df = df.sample(frac=1)"""
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     df_samples = pd.read_pickle("samples/samples.pkl")
 
     # Sort values by time
-    df_samples_by_time = df_samples #.sort_values("time")
+    df_samples_by_time = df_samples.sort_values("time")
 
     ######################################################################################################################
     #                                             Meteorology data module                                                # 
@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
     met_albedo = get_albedo('gribs/albedo.grib')
 
-    for i in range(0, 50): #len(df_samples_by_time)):
+    for i in range(14, 50): #len(df_samples_by_time)):
 
         identifier = i
         sample = df_samples_by_time.iloc[i,:]
@@ -65,8 +65,7 @@ if __name__ == "__main__":
         # Download the datasets from CDS and open them
         print("Downloading and opening dataset...\n")
         met = open_dataset(sample)
-
-        met_temp = get_temperature_met(sample)
+        met_temp = get_temperature_and_clouds_met(sample)
         
     ######################################################################################################################
     #                                           Aircraft performance module                                              # 
@@ -81,20 +80,18 @@ if __name__ == "__main__":
 
         # Run DryAdvection model and generate .nc input ds and output to file
 
-        try: 
-            os.makedirs("mets")
-        except:
-            pass
+        try: os.makedirs("mets")
+        except: pass
 
-        try: 
-            os.makedirs("yamls")
-        except:
-            pass
+        try:  os.makedirs("yamls")
+        except: pass
 
         print("Running DryAdvection model...\n")
         ds, ds_temp, pressure = advect(met, met_temp, fl)
         ds.to_netcdf(f"mets/input{i}.nc")
         ds_temp.to_netcdf(f"mets/input_temp{i}.nc")
+
+        print(ds_temp)
 
         # Generate the .yaml input dictionary and output to file
         d = generate_yaml_d(identifier, sample, fl, float(pressure/100))
@@ -105,13 +102,10 @@ if __name__ == "__main__":
     #                                               APCEMM module                                                        # 
     ######################################################################################################################
 
-        try: 
-            os.makedirs("APCEMM_results")
-        except:
-            pass
+        try: os.makedirs("APCEMM_results")
+        except: pass
 
         apcemm_file_path = "../../build/APCEMM"
-
         call(["./../../build/APCEMM", f"yamls/input{i}.yaml"])
 
     ######################################################################################################################
@@ -130,7 +124,7 @@ if __name__ == "__main__":
                 j_per_m = 0
                 age = 0
             else:
-                j_per_m, age = calc_sample(apce_data, sample, met_albedo)
+                j_per_m, age = calc_sample(apce_data, sample, met_albedo, ds_temp)
                 status = "Contrail formed"
 
         except FileNotFoundError:

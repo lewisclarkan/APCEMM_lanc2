@@ -422,8 +422,10 @@ def get_ice_habit(age):
 
     return ice_habit
 
-def calc_sample(apce_data, sample, met_albedo):
-    
+def calc_sample(apce_data, sample, met_albedo, ds_temp):
+
+    print(ds_temp)
+
     ds_t = apce_data.ds_t
     t = apce_data.t
 
@@ -444,18 +446,26 @@ def calc_sample(apce_data, sample, met_albedo):
 
     for ds_tt in ds_t:
 
+        # Set the albedo value based on the albedo dataset
         albedo = met_albedo['fal'].data.sel(longitude=sample["longitude"], latitude=sample["latitude"], time ='2024-03-01T13:00:00.000000000', level=-1, method='nearest').values
 
+        # Set age (e.g. 10 mins, 20 mins ...)
         age = t[j]
         print(age)
+
+        # Set the actual time in the pandas format
         sample_time = sample["time"] + pd.Timedelta(minutes=age)
+
+        ds_temp_tt = ds_temp.sel(time = np.datetime64(sample_time), method='nearest')
 
         # Get the sample time in the format required by libRadtran i.e. "YYYY MM DD HH MM SS"
         sample_time_array = [sample_time.year, sample_time.month, sample_time.day, sample_time.hour, sample_time.minute, sample_time.second]
         sample_time_format = (f"{sample_time_array[0]} {sample_time_array[1]} {sample_time_array[2]} {sample_time_array[3]} {sample_time_array[4]} {sample_time_array[5]} ")
 
+        # Check whether it is night or not and set the boolean value
         b_nighttime = check_night(sample_time, sample["latitude"], sample["longitude"])
 
+        # Split the APCEMM output based on the number of samples, and return lists of IWCs, Eff_rads and xs
         IWCs, Eff_rads, xs, ys = generate_indicies(ds_tt, samples)
         IWCs_avg, Eff_rads_avg = average_columns(IWCs, Eff_rads)
         IWCs_avg, Eff_rads_avg, ys = adjust_altitude(IWCs_avg, Eff_rads_avg, ys, altitude)
@@ -466,6 +476,7 @@ def calc_sample(apce_data, sample, met_albedo):
 
         total_w_per_m = run_libradtran(xs, b_nighttime)
         total_w_per_m_s.append(total_w_per_m)
+        
         j = j + 1
 
     j_per_m = sum(total_w_per_m_s) * timestep

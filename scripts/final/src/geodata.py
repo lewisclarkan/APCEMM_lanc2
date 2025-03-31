@@ -34,6 +34,7 @@ def open_dataset(sample):
         grid=1,  # horizontal resolution, 0.25 by default
         model_levels=range(70, 91),
         pressure_levels=np.arange(170, 400, 10),
+        cache_download=True,
     )
     met_t = era5ml.open_metdataset()
 
@@ -64,6 +65,7 @@ def get_temperature_and_clouds_met(sample):
         model_levels=np.arange(1, 138, 1),
         pressure_levels=[1000,975,950,925,900,875,850,825,800,750,700,650,600,550,500,450,400,350,300,250,200,150,100,70,50,30,20,10,5,1],
         grid=1,
+        cache_download=True,
         ) 
     
     met_t = era5ml.open_metdataset()
@@ -83,21 +85,21 @@ def get_temperature_and_clouds_met(sample):
 
 def get_albedo(path):
 
-    client = cdsapi.Client()
+    #client = cdsapi.Client()
 
-    dataset = 'reanalysis-era5-single-levels'
-    request = {
-        'product_type': ['reanalysis'],
-        'variable': ['forecast_albedo'],
-        'year': ['2024', '2024'],
-        'month': ['03', '03'],
-        'day': ['01', '01'],
-        'time': ['13:00', '14:00'],
-        'data_format': 'grib',
-    }
+    #dataset = 'reanalysis-era5-single-levels'
+    #request = {
+    #    'product_type': ['reanalysis'],
+    #    'variable': ['forecast_albedo'],
+    #    'year': ['2024', '2024'],
+    #    'month': ['03', '03'],
+    #    'day': ['01', '01'],
+    #    'time': ['13:00', '14:00'],
+    #    'data_format': 'grib',
+    #}
     target = path
 
-    client.retrieve(dataset, request, target)
+    #client.retrieve(dataset, request, target)
 
     ds = xr.load_dataset(path, engine="cfgrib")
     ds = ds.expand_dims({'level':[-1]})

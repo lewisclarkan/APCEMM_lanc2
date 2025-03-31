@@ -50,51 +50,38 @@ def removeLow(arr, cutoff = 1e-3):
     vfunc = np.vectorize(func)
     return vfunc(arr)
 
-def generate_indicies(ds_tt, samples):
-    """Splits the domain based on the number of samples 
-    and returns lists of IWCs, Eff_rads and xs."""
+def generate_indices(x, y, quantity, samples):
 
     indices = []
-    values = []
-    IWCs = []
-    Eff_rads = []
+    quantity_s = []
     xs = []
 
     for i in range(0, samples):
-        index = i * int(len(ds_tt['x'])/samples)
+        index = i * int(len(quantity)/samples)
         indices.append(index)
-        values.append(np.float32(ds_tt['x'][index].values))
 
     for i in range(0,len(indices)-1):
-        IWCs.append(ds_tt['IWC'][:, indices[i]:indices[i+1]+1:1])
-        Eff_rads.append(ds_tt['Effective radius'][:, indices[i]:indices[i+1]+1:1])
-        xs.append(ds_tt["x"][indices[i]:indices[i+1]+1:1])
+        quantity_s.append(quantity[:, indices[i]:indices[i+1]+1:1])
+        xs.append(x[indices[i]:indices[i+1]+1:1])
 
-    ys = ds_tt["y"].values
+    ys = y.values
 
-    return IWCs, Eff_rads, xs, ys
+    return quantity_s, xs, ys
 
-def average_columns(IWCs, Eff_rads):
-    """Averages the ice water content and effective radius
-    along the columns and returns the averaged quantities"""
+def average_columns(quantity):
 
-    IWCs_avg = []
-    Eff_rads_avg = []
+    quantity_avg = []
 
-    for i in range(0, len(IWCs)):
+    for i in range(0, len(quantity)):
+        temp = []
+        for j in quantity[i]:
+            if j.size > 0:
+                temp.append((j.values).mean())
+            else:
+                temp.append(0)
+        quantity_avg.append(temp)
 
-        temp1 = []
-        for j in IWCs[i]:
-            temp1.append((j.values).mean())
-
-        temp2 = []
-        for j in Eff_rads[i]:
-            temp2.append((j.values).mean())
-
-        IWCs_avg.append(temp1)
-        Eff_rads_avg.append(temp2)
-
-    return IWCs_avg, Eff_rads_avg
+    return quantity_avg
 
 def adjust_altitude(IWCs_avg, Eff_rads_avg, ys, base_altitude):
 
@@ -424,8 +411,6 @@ def get_ice_habit(age):
 
 def calc_sample(apce_data, sample, met_albedo, ds_temp):
 
-    print(ds_temp)
-
     ds_t = apce_data.ds_t
     t = apce_data.t
 
@@ -439,10 +424,9 @@ def calc_sample(apce_data, sample, met_albedo, ds_temp):
     atmosphere_file_path = "../libRadtran-2.0.6/data/atmmod/afglus.dat"            
 
     samples = 15 
+    j=0
 
     total_w_per_m_s = []
-
-    j=0
 
     for ds_tt in ds_t:
 
@@ -451,6 +435,7 @@ def calc_sample(apce_data, sample, met_albedo, ds_temp):
 
         # Set age (e.g. 10 mins, 20 mins ...)
         age = t[j]
+
         print(age)
 
         # Set the actual time in the pandas format
@@ -465,12 +450,22 @@ def calc_sample(apce_data, sample, met_albedo, ds_temp):
         # Check whether it is night or not and set the boolean value
         b_nighttime = check_night(sample_time, sample["latitude"], sample["longitude"])
 
-        # Split the APCEMM output based on the number of samples, and return lists of IWCs, Eff_rads and xs
-        IWCs, Eff_rads, xs, ys = generate_indicies(ds_tt, samples)
-        IWCs_avg, Eff_rads_avg = average_columns(IWCs, Eff_rads)
-        IWCs_avg, Eff_rads_avg, ys = adjust_altitude(IWCs_avg, Eff_rads_avg, ys, altitude)
-        
-        habit = write_cloud_files(IWCs_avg, Eff_rads_avg, ys, age)
+        # Split the APCEMM output based on the number of samples, and return lists of IWCs, Eff_rads, xs and ys
+        contrail_IWCs,     xs, ys = generate_indices(ds_tt["x"], ds_tt["y"], ds_tt["IWC"], samples)
+        contrail_Eff_rads, xs, ys = generate_indices(ds_tt["x"], ds_tt["y"], ds_tt["Effective radius"], samples)
+
+        contrail_IWCs_avg     = average_columns(contrail_IWCs)
+        contrail_Eff_rads_avg = average_columns(contrail_Eff_rads)
+
+        contrail_IWCs_avg, contrail_Eff_rads_avg, ys = adjust_altitude(contrail_IWCs_avg, contrail_Eff_rads_avg, ys, altitude)
+
+        # Call write_cloud_files with the info:
+        # 1. Domain properties (ys)
+        # 2. Contrail properties (IWCs, Eff_rads, age)
+        # 3. Natural cloud properties (IWCs, LWCs) N.B. need to do check regarding assumptions of habits for ice clouds
+
+
+        habit = write_cloud_files(contrail_IWCs_avg, contrail_Eff_rads_avg, ys, age)
 
         write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, sample_time_format, latitude, longitude, albedo, habit, xs)
 

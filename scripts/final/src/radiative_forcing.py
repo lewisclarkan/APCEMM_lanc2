@@ -409,53 +409,14 @@ def get_ice_habit(age):
 
     return ice_habit
 
-def calculate_saturation_vapour_pressure(temperature):
-    """
-    Calculate the saturation vapor pressure (e_s) in hPa.
-    Args:
-        temperature (float or np.array): Temperature in Kelvin.
-    Returns:
-        float or np.array: Saturation vapor pressure in Pa.
-    """
-    temperature_celsius = temperature - 273.15  # Convert to Celsius
-    e_s = 6.112 * np.exp((17.67 * temperature_celsius) / (temperature_celsius + 243.5))  # hPa
-    return e_s * 100  # Convert to Pa
-
-def calculate_air_density(pressure, temperature, relative_humidity):
-    """
-    Calculate the density of moist air.
-    Args:
-        pressure (float or np.array): Total air pressure in Pa.
-        temperature (float or np.array): Temperature in Kelvin.
-        relative_humidity (float or np.array): Relative humidity (0 to 1).
-    Returns:
-        float or np.array: Air density in kg/m³.
-    """
-    R_d = 287.05  # Specific gas constant for dry air (J/(kg·K))
-    R_v = 461.5   # Specific gas constant for water vapor (J/(kg·K))
-
-    # Calculate saturation vapor pressure
-    e_s = calculate_saturation_vapour_pressure(temperature)
-
-    # Calculate partial pressure of water vapor
-    P_v = relative_humidity * e_s
-
-    # Calculate partial pressure of dry air
-    P_d = pressure - P_v
-
-    # Calculate air density
-    air_density = (P_d / (R_d * temperature)) + (P_v / (R_v * temperature))
-    return air_density
-
-def convert_specific_water_content_to_gm3(specific, pressure, temperature, relative_humidity):
-    air_density = calculate_air_density(pressure, temperature, relative_humidity)  # kg/m³
-    lwc = specific * air_density * 1000  # Convert to g/m³
-    return lwc
-
 def calc_sample(apce_data, sample, met_albedo, ds_temp):
+
+    print(ds_temp.coords["time"])
 
     ds_t = apce_data.ds_t
     t = apce_data.t
+
+    print(t)
 
     timestep = t[1] - t[0]
 
@@ -486,9 +447,7 @@ def calc_sample(apce_data, sample, met_albedo, ds_temp):
        
         # Get the dataset for clouds and temperature for the whole atmosphere along
         # the advected path of the contrail
-        ds_temp_tt = ds_temp.sel(time = np.datetime64(sample_time), method='nearest')
-
-        ds_temp_tt["IWC"] = convert_specific_water_content_to_gm3(specific, pressure, temperature, relative_humidity)
+        ds_temp_tt = ds_temp.sel(time = age/60, method='nearest')
 
         # Get the sample time in the format required by libRadtran i.e. "YYYY MM DD HH MM SS"
         sample_time_array = [sample_time.year, sample_time.month, sample_time.day, sample_time.hour, sample_time.minute, sample_time.second]
@@ -501,21 +460,34 @@ def calc_sample(apce_data, sample, met_albedo, ds_temp):
         contrail_IWCs,     xs, ys = generate_indices(ds_tt["x"], ds_tt["y"], ds_tt["IWC"], samples)
         contrail_Eff_rads, xs, ys = generate_indices(ds_tt["x"], ds_tt["y"], ds_tt["Effective radius"], samples)
 
+        # Average the IWC and Eff_rads over the columns
         contrail_IWCs_avg     = average_columns(contrail_IWCs)
         contrail_Eff_rads_avg = average_columns(contrail_Eff_rads)
 
+        # Adjust the altitudes based on cruise altitude
         contrail_IWCs_avg, contrail_Eff_rads_avg, ys = adjust_altitude(contrail_IWCs_avg, contrail_Eff_rads_avg, ys, altitude)
 
-        # Generate natural_IWCs_avg and natural_LWCs_avg
+        # Get the LWC and IWC for the natural clouds
+        cloud_LWC_cols = (np.repeat((ds_temp_tt["cloud_LWC"].values)[:,np.newaxis], samples-1, axis=1)).T
+        cloud_IWC_cols = (np.repeat((ds_temp_tt["cloud_IWC"].values)[:,np.newaxis], samples-1, axis=1)).T
+        max_cloud_cover = (ds_temp_tt["fraction_of_cloud_cover"]).max()
 
-
+        # Generate random numbers that don't repeat. Then, calculate
+        # the number of columns which should be set to zero (due) to
+        # the cloud overlap, and then set them to zero
+        list_of_ints = np.arange(0,samples-1)
+        print(list_of_ints)
+        np.random.shuffle(list_of_ints)
+        for i in range(0,round((1-max_cloud_cover.values) * samples)-1):
+            cloud_LWC_cols[list_of_ints[i]][:] = 0
 
 
         # Call write_cloud_files with the info:
         # 1. Domain properties (ys)
         # 2. Contrail properties (IWCs, Eff_rads, age)
         # 3. Natural cloud properties (IWCs, LWCs) N.B. need to do check regarding assumptions of habits for ice clouds
-
+        #                                          N.B. need to cut off the domains at a suitable height e.g. 9 km. we could
+        #                                               then overwrite this with the contrail IWCs so that we are sure to be OK?
 
         habit = write_cloud_files(contrail_IWCs_avg, contrail_Eff_rads_avg, ys, age)
 

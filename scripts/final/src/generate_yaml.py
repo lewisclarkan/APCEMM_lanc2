@@ -33,9 +33,9 @@ def generate_yaml_d(identifier, sample, fl, pressure):
     CH4 = 1.76      # [ppm]
     SO2 = 7.25      # [ppt]
 
-    transport_time_step = 5    # [min]
+    transport_time_step = 6    # [min]
 
-    ice_growth_time_step = 5   # [min]
+    ice_growth_time_step = 6   # [min]
 
     input_timestep = 0.1 # hours
 
@@ -124,7 +124,7 @@ def generate_yaml_d(identifier, sample, fl, pressure):
                                                    'Updraft veloc. [cm/s] (double)': 5}},
     'CHEMISTRY MENU':  {'Turn on Chemistry (T/F)': 'F',
                         'Perform hetero. chem. (T/F)': 'F',
-                        'Chemistry Timestep [min] (double)' : 10,
+                        'Chemistry Timestep [min] (double)' : 6,
                         'Photolysis rates folder (string)': '/path/to/input'},
     'AEROSOL MENU':    {'Turn on grav. settling (T/F)': 'T',
                         'Turn on solid coagulation (T/F)': 'T',
@@ -159,16 +159,16 @@ def generate_yaml_d(identifier, sample, fl, pressure):
                         'Add diurnal variations (T/F)': 'F',
                         'TEMPERATURE PERTURBATION SUBMENU': {'Enable Temp. Pert. (T/F)': 'F',
                                                              'Temp. Perturb. Amplitude (double)': 1.0,
-                                                             'Temp. Perturb. Timescale (min)': 10}},
+                                                             'Temp. Perturb. Timescale (min)': 6}},
     'DIAGNOSTIC MENU': {'netCDF filename format (string)': 'trac_avg.apcemm.hhmm',
                         'SPECIES TIMESERIES SUBMENU' : {'Save species timeseries (T/F)': 'F',
                                                         'Inst timeseries file (string)': 'ts_hhmm.nc',
                                                         'Species indices to include (list of ints)': 1,
-                                                        'Save frequency [min] (double)': 10},
+                                                        'Save frequency [min] (double)': 6},
                         'AEROSOL TIMESERIES SUBMENU': {'Save aerosol timeseries (T/F)': 'T',
                                                        'Inst timeseries file (string)': 'ts_aerosol_hhmm.nc',
                                                        'Aerosol indices to include (list of ints)': 1,
-                                                       'Save frequency [min] (double)': 10},
+                                                       'Save frequency [min] (double)': 6},
                         'PRODUCTION & LOSS SUBMENU': {'Turn on P/L diag (T/F)': 'F',
                                                       'Save O3 P/L (T/F)': 'F'}},
     'ADVANCED OPTIONS MENU': {'GRID SUBMENU': {'NX (positive int)' : 200,

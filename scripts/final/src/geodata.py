@@ -61,7 +61,7 @@ def get_temperature_and_clouds_met(sample):
 
     era5ml = ERA5ModelLevel(
         time=time,
-        variables=["t","clwc","ciwc"],
+        variables=["t","clwc","ciwc","q"],
         model_levels=np.arange(1, 138, 1),
         pressure_levels=[1000,975,950,925,900,875,850,825,800,750,700,650,600,550,500,450,400,350,300,250,200,150,100,70,50,30,20,10,5,1],
         grid=1,
@@ -69,6 +69,8 @@ def get_temperature_and_clouds_met(sample):
         ) 
     
     met_t = era5ml.open_metdataset()
+
+    
 
     geopotential = met_t.data.coords["altitude"].data
 
@@ -164,6 +166,7 @@ def generate_temp_profile(
     vars = (
         met_var.AirTemperature,
         met_var.GeopotentialHeight,
+        met_var.SpecificHumidity
     )
     met.ensure_vars(vars)
     met.standardize_variables(vars)
@@ -205,6 +208,7 @@ def generate_temp_profile(
         "geopotential_height",
         "specific_cloud_liquid_water_content",
         "specific_cloud_ice_water_content",
+        "specific_humidity",
     ):
         models.interpolate_met(met, vector, met_key, **interp_kwargs)
 
@@ -227,6 +231,7 @@ def generate_temp_profile(
     temperature = vector["air_temperature"].reshape(shape)
     specific_cloud_liquid_water_content = vector["specific_cloud_liquid_water_content"].reshape(shape)
     specific_cloud_ice_water_content = vector["specific_cloud_ice_water_content"].reshape(shape)
+    specific_humidity = vector["specific_humidity"].reshape(shape)
     z = vector["geopotential_height"].reshape(shape)
 
     # Interpolate fields to target altitudes profile-by-profile
@@ -234,6 +239,7 @@ def generate_temp_profile(
     temperature_on_z = np.zeros(shape, dtype=temperature.dtype)
     specific_cloud_liquid_water_content_on_z = np.zeros(shape, dtype=specific_cloud_liquid_water_content.dtype)
     specific_cloud_ice_water_content_on_z = np.zeros(shape, dtype=specific_cloud_ice_water_content.dtype)
+    specific_humidity_on_z = np.zeros(shape, dtype=specific_cloud_ice_water_content.dtype)
 
     # Fields should already be on pressure levels close to target
     # altitudes, so this just uses linear interpolation and constant
@@ -269,6 +275,7 @@ def generate_temp_profile(
         temperature_on_z[i, :] = interp(altitude, z[i, :], temperature[i, :])
         specific_cloud_liquid_water_content_on_z[i, :] = interp(altitude, z[i, :], specific_cloud_liquid_water_content[i, :])
         specific_cloud_ice_water_content_on_z[i, :] = interp(altitude, z[i, :], specific_cloud_ice_water_content[i, :])
+        specific_humidity_on_z[i, :] = interp(altitude, z[i, :], specific_humidity[i, :])
 
     # APCEMM also requires initial pressure profile
     pressure_on_z = interp(altitude, z[0, :], pressure)
@@ -280,6 +287,7 @@ def generate_temp_profile(
             "temperature": (("altitude", "time"),temperature_on_z.astype("float32").T,{"units": "K"}),
             "specific_cloud_liquid_water_content": (("altitude", "time"),specific_cloud_liquid_water_content_on_z.astype("float32").T,{"units": "kg/kg"}),  
             "specific_cloud_ice_water_content": (("altitude", "time"),specific_cloud_ice_water_content_on_z.astype("float32").T,{"units": "kg/kg"}),
+            "specific_humidity": (("altitude", "time"),specific_humidity.astype("float32").T,{"units": "kg/kg"}),
             },
         coords={
             "altitude": ("altitude", altitude.astype("float32") / 1e3, {"units": "km"}),
@@ -526,7 +534,7 @@ def generate_apcemm_input_met(
         },
     )
 
-def fix_NaNs(ds):
+def fix_dataset(ds):
 
     indices = np.where(np.isfinite(ds["temperature"]))
     interp = NearestNDInterpolator(np.transpose(indices), ds["temperature"].values[indices])
@@ -534,6 +542,14 @@ def fix_NaNs(ds):
 
     ds["specific_cloud_liquid_water_content"] = ds["specific_cloud_liquid_water_content"].fillna(0)
     ds["specific_cloud_ice_water_content"] = ds["specific_cloud_ice_water_content"].fillna(0)
+    ds["specific_humidity"] = ds["specific_humidity"].fillna(0)
+
+    ds["pressure"][0] = 1000
+    ds["pressure"][-1] = 1
+
+    ds["moist_density"] = ((ds["pressure"]*1e2/286.9) * (1 + ds["specific_humidity"])) / (1 + 1.609 * ds["specific_humidity"])
+    ds["cloud_LWC"] = ds["specific_cloud_liquid_water_content"] * ds["moist_density"] / 1e3
+    ds["cloud_IWC"] = ds["specific_cloud_ice_water_content"] * ds["moist_density"] / 1e3
 
     return ds
 
@@ -609,7 +625,7 @@ def advect(met, met_temp, fl):
         dz_m=200,
         interp_kwargs={'method':'linear'})
     
-    ds_temp = fix_NaNs(ds_temp)
+    ds_temp = fix_dataset(ds_temp)
 
     return ds, ds_temp, air_pressure[0]
 

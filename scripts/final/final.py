@@ -58,7 +58,7 @@ if __name__ == "__main__":
     met_albedo = get_albedo('gribs/albedo.grib')
 
 
-    for i in range(15, 16): #len(df_samples_by_time)):
+    for i in range(14, 15): #len(df_samples_by_time)):
 
         identifier = i
         sample = df_samples_by_time.iloc[i,:]

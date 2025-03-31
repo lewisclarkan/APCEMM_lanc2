@@ -103,7 +103,7 @@ def adjust_altitude(IWCs_avg, Eff_rads_avg, ys, base_altitude):
 
     return IWCs_avg, Eff_rads_avg, ys
 
-def write_cloud_files(IWCs_avg, Eff_rads_avg, ys, age):
+def write_cloud_files(contrail_IWCs_avg, contrail_Eff_rads_avg, cloud_LWC_cols, cloud_IWC_cols, ys, cloud_ys, age):
 
     habit = get_ice_habit(age)
 
@@ -112,41 +112,68 @@ def write_cloud_files(IWCs_avg, Eff_rads_avg, ys, age):
     except:
         pass
 
-    for i in range(0,len(IWCs_avg)):
+    for i in range(0,len(contrail_IWCs_avg)):
 
-        file_name = (f"./clouds/cloud{i}.DAT")
+        indices = []
+        file_name = (f"./clouds/ice_cloud{i}.DAT")
+        file_name_empty = (f"./clouds/ice_cloud_empty{i}.DAT")
+        file_name_water = (f"./clouds/water_cloud{i}.DAT")
+
+        eff_rad_switch = 80 # CURRENTLY THIS IS ARBITRARY
+
+        natural_IC_Eff_rad = 25
+        natural_WC_Eff_rad = 14
 
         with open(file_name, "w") as f:
             f.write("#      z         IWC          R_eff\n")
             f.write("#     (km)     (g/m^3)         (um)\n")
 
-            max_eff_rad = np.max(Eff_rads_avg)
-            min_eff_rad = np.min(Eff_rads_avg)
+            max_eff_rad = np.max(contrail_Eff_rads_avg)
 
-            if max_eff_rad >= 9.48:
+            if max_eff_rad > eff_rad_switch:
                 habit = "droxtal"
                 lower_limit = 9.48
                 upper_limit = 293.32
 
-            elif max_eff_rad < 9.48:
+            else:
                 habit = "rough-aggregate"
                 lower_limit = 3.55
-                upper_limit = 9.48
+                upper_limit = 108.1
 
             for j in range(len(ys)-1, 0, -1):
-                if (Eff_rads_avg[i][j] < lower_limit): 
-                    IWCs_avg[i][j]=0
+                if (contrail_Eff_rads_avg[i][j] < lower_limit): 
+                    contrail_IWCs_avg[i][j]=0
+                elif (contrail_Eff_rads_avg[i][j] > upper_limit):
+                    contrail_Eff_rads_avg[i][j]=upper_limit
+                f.write(f"     {ys[j]:.3f}   {contrail_IWCs_avg[i][j]:.9f}   {contrail_Eff_rads_avg[i][j]:.9f}\n")
 
-                elif (Eff_rads_avg[i][j] > upper_limit):
-                    Eff_rads_avg[i][j]=upper_limit
+                minimum_y = ys[j] - 0.1
 
-                f.write(f"     {ys[j]:.3f}   {IWCs_avg[i][j]:.9f}   {Eff_rads_avg[i][j]:.9f}\n")
+            for k in range(0,len(cloud_ys)):
+                if cloud_ys[k] > minimum_y:
+                    indices.append(k)
 
-    with open("./clouds/empty_clouds.DAT", "w") as f:
-        f.write("#      z         IWC          R_eff\n")
-        f.write("#     (km)     (g/m^3)         (um)\n")
-        f.write("     10.963   0.000000000   9.490000000\n")
-        f.write("     9.172   0.000000000   9.490000000\n")
+            cloud_IWC_cols_new_i = []
+            cloud_ys_new_i = []
+            for k in range(0,len(cloud_ys)):
+                cloud_IWC_cols_new_i = (np.delete(cloud_IWC_cols[i],indices))
+                cloud_ys_new_i = (np.delete(cloud_ys,indices))
+
+            f.write(f"     {minimum_y:.3f}   {0:.3f}   {natural_IC_Eff_rad:.9f}\n")
+            for k in range(len(cloud_IWC_cols_new_i)-1, 0 , -1):
+                f.write(f"     {cloud_ys_new_i[k]:.3f}   {cloud_IWC_cols_new_i[k]:.9f}   {natural_IC_Eff_rad:.9f}\n")
+                
+        with open(file_name_empty, "w") as f:
+            f.write("#      z         IWC          R_eff\n")
+            f.write(f"     {minimum_y:.3f}   {0:.3f}   {natural_IC_Eff_rad:.9f}\n")
+            for k in range(len(cloud_IWC_cols_new_i)-1, 0 , -1):
+                f.write(f"     {cloud_ys_new_i[k]:.3f}   {cloud_IWC_cols_new_i[k]:.9f}   {natural_IC_Eff_rad:.9f}\n")
+
+        with open(file_name_water, "w") as f:
+            f.write("#      z         LWC          R_eff\n")
+            f.write("#      z         IWC          R_eff\n")
+            for k in range(len(cloud_ys)-1, 0 , -1):
+                f.write(f"     {cloud_ys[k]:.3f}   {cloud_LWC_cols[i][k]:.9f}   {natural_WC_Eff_rad:.9f}\n")
 
     return habit
 
@@ -163,7 +190,9 @@ def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, ti
 
     for i in range(0, len(xs)):
 
-        clouds = (f"./clouds/cloud{i}.DAT")
+        ice_clouds = (f"./clouds/ice_cloud{i}.DAT")
+        empty_ice_clouds = (f"./clouds/ice_cloud_empty{i}.DAT")
+        water_clouds = (f"./clouds/water_cloud{i}.DAT")
 
         inpThermal = (f"./inps/runThermal{i}.DAT")
         inpSolar   = (f"./inps/runSolar{i}.DAT")
@@ -189,9 +218,12 @@ def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, ti
             file.write(f"mol_abs_param {correlated_k}\n")
             file.write("\n")
 
-            file.write(f"ic_file 1D {clouds}\n")
+            file.write(f"ic_file 1D {ice_clouds}\n")
             file.write(f"ic_properties {ice_parameterisation}\n")
             file.write(f"ic_habit {ice_habit}\n")
+            file.write("\n")
+
+            file.write(f"wc_file 1D {water_clouds}\n")
             file.write("\n")
 
             file.write("zout TOA\n")
@@ -216,9 +248,12 @@ def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, ti
             file.write(f"mol_abs_param {correlated_k}\n")
             file.write("\n")
 
-            file.write(f"ic_file 1D {clouds}\n")
+            file.write(f"ic_file 1D {ice_clouds}\n")
             file.write(f"ic_properties {ice_parameterisation}\n")
             file.write(f"ic_habit {ice_habit}\n")
+            file.write("\n")
+
+            file.write(f"wc_file 1D {water_clouds}\n")
             file.write("\n")
 
             file.write("zout TOA\n")
@@ -243,9 +278,12 @@ def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, ti
             file.write(f"mol_abs_param {correlated_k}\n")
             file.write("\n")
 
-            file.write(f"ic_file 1D ./clouds/empty_clouds.DAT\n")
+            file.write(f"ic_file 1D {empty_ice_clouds}\n")
             file.write(f"ic_properties {ice_parameterisation}\n")
             file.write(f"ic_habit {ice_habit}\n")
+            file.write("\n")
+
+            file.write(f"wc_file 1D {water_clouds}\n")
             file.write("\n")
 
             file.write("zout TOA\n")
@@ -270,10 +308,14 @@ def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, ti
             file.write(f"mol_abs_param {correlated_k}\n")
             file.write("\n")
 
-            file.write(f"ic_file 1D ./clouds/empty_clouds.DAT\n")
+            file.write(f"ic_file 1D {empty_ice_clouds}\n")
             file.write(f"ic_properties {ice_parameterisation}\n")
             file.write(f"ic_habit {ice_habit}\n")
             file.write("\n")
+
+            file.write(f"wc_file 1D {water_clouds}\n")
+            file.write("\n")
+
 
             file.write("zout TOA\n")
             file.write("output_process sum\n")
@@ -411,12 +453,8 @@ def get_ice_habit(age):
 
 def calc_sample(apce_data, sample, met_albedo, ds_temp):
 
-    print(ds_temp.coords["time"])
-
     ds_t = apce_data.ds_t
     t = apce_data.t
-
-    print(t)
 
     timestep = t[1] - t[0]
 
@@ -471,15 +509,16 @@ def calc_sample(apce_data, sample, met_albedo, ds_temp):
         cloud_LWC_cols = (np.repeat((ds_temp_tt["cloud_LWC"].values)[:,np.newaxis], samples-1, axis=1)).T
         cloud_IWC_cols = (np.repeat((ds_temp_tt["cloud_IWC"].values)[:,np.newaxis], samples-1, axis=1)).T
         max_cloud_cover = (ds_temp_tt["fraction_of_cloud_cover"]).max()
+        cloud_ys = ds_temp_tt["altitude"].values
 
         # Generate random numbers that don't repeat. Then, calculate
         # the number of columns which should be set to zero (due) to
         # the cloud overlap, and then set them to zero
         list_of_ints = np.arange(0,samples-1)
-        print(list_of_ints)
         np.random.shuffle(list_of_ints)
         for i in range(0,round((1-max_cloud_cover.values) * samples)-1):
             cloud_LWC_cols[list_of_ints[i]][:] = 0
+            cloud_IWC_cols[list_of_ints[i]][:] = 0
 
 
         # Call write_cloud_files with the info:
@@ -489,7 +528,7 @@ def calc_sample(apce_data, sample, met_albedo, ds_temp):
         #                                          N.B. need to cut off the domains at a suitable height e.g. 9 km. we could
         #                                               then overwrite this with the contrail IWCs so that we are sure to be OK?
 
-        habit = write_cloud_files(contrail_IWCs_avg, contrail_Eff_rads_avg, ys, age)
+        habit = write_cloud_files(contrail_IWCs_avg, contrail_Eff_rads_avg, cloud_LWC_cols, cloud_IWC_cols, ys, cloud_ys, age)
 
         write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, sample_time_format, latitude, longitude, albedo, habit, xs)
 

@@ -552,9 +552,10 @@ def fix_dataset(ds):
 
     ds["fraction_of_cloud_cover"] = ds["fraction_of_cloud_cover"].fillna(0)
 
-    ds["moist_density"] = ((ds["pressure"]*1e2/286.9) * (1 + ds["specific_humidity"])) / (1 + 1.609 * ds["specific_humidity"])
-    ds["cloud_LWC"] = ds["specific_cloud_liquid_water_content"] * ds["moist_density"] / 1e3
-    ds["cloud_IWC"] = ds["specific_cloud_ice_water_content"] * ds["moist_density"] / 1e3
+    ds["moist_density"] = (ds["pressure"]*1e2/286.9)/ds["temperature"] #* (1 + ds["specific_humidity"])) / (1 + 1.609 * ds["specific_humidity"])
+
+    ds["cloud_LWC"] = ds["specific_cloud_liquid_water_content"] * ds["moist_density"] * 1e3
+    ds["cloud_IWC"] = ds["specific_cloud_ice_water_content"] * ds["moist_density"] * 1e3
 
     return ds
 

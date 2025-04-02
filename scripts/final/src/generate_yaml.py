@@ -1,7 +1,7 @@
 import pandas as pd
 from pycontrails import Flight
 
-def generate_yaml_d(identifier, sample, fl, pressure):
+def generate_yaml_d(identifier, sample, fl, pressure, properties_dict):
 
     met_file_path = f"../mets/input{identifier}.nc"
 
@@ -47,18 +47,19 @@ def generate_yaml_d(identifier, sample, fl, pressure):
     CO_fuel = 1
     UHC = 0.6
 
-    SO2_fuel = 1.2           # [g/kg fuel]
+    SO2_fuel = 1.2      # [g/kg fuel]
     SO2_to_SO4 = 2      # [%]
-    soot = 0.008        # [g/kg fuel]
-    soot_radius = 20e-9 # [m], does not depend on aircraft, fuel or engine type
+    soot = float(properties_dict["nvPM_EI_m"])        # [g/kg fuel]
+    soot_radius = 20e-9                        # [m], does not depend on aircraft, fuel or engine type
     
-    total_fuel_flow = 3 # [kg/s]
-    aircraft_mass = 1e5 # [kg], at beginning of cruise
-    flight_speed = 250  # [m/s]
-    num_engines = 2     # 2/4
-    wingspan = 30       # [m]
-    core_exit_temp = 553.65 # [K]
-    exit_bypass_area = 0.9772  # [m^2]
+    total_fuel_flow = float(properties_dict["fuel_flow_rate"]) # [kg/s]
+    aircraft_mass   = float(properties_dict["mass"])           # [kg], at beginning of cruise
+    flight_speed    = float(properties_dict["air_speed"])      # [m/s] 
+    wingspan        = float(properties_dict["wingspan"])       # [m]
+
+    num_engines     = 2         # 2 or 4
+    core_exit_temp = 553.65     # [K]
+    exit_bypass_area = 0.9772   # [m^2]
 
     humidity_mod_scheme = 'none' # none / constant / scaling
     humidity_scaling_constant_a = 0.9779

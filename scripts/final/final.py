@@ -8,7 +8,7 @@ import os
 
 from pycontrails import Flight
 
-from src.aircraft import set_flight_parameters
+from src.aircraft import set_flight_parameters, clean_flight_data, get_aircraft_properties
 from src.generate_yaml import generate_yaml_d
 from src.geodata import open_dataset, advect, get_albedo, get_temperature_and_clouds_met
 from src.sampling import generateDfSamples
@@ -45,6 +45,8 @@ if __name__ == "__main__":
     #df_samples.to_pickle("samples/samples.pkl")
 
     df_samples = pd.read_pickle("samples/samples.pkl")
+    df_aircraft = pd.read_csv('flight_data/aircraft.csv', index_col = 0)
+    df_samples = clean_flight_data(df_samples,df_aircraft)
 
     # Sort values by time
     df_samples_by_time = df_samples.sort_values("time")
@@ -58,7 +60,7 @@ if __name__ == "__main__":
     met_albedo = get_albedo('gribs/albedo.grib')
 
 
-    for i in range(14, 15): #len(df_samples_by_time)):
+    for i in range(62, 65): #len(df_samples_by_time)):
 
         identifier = i
         sample = df_samples_by_time.iloc[i,:]
@@ -72,8 +74,9 @@ if __name__ == "__main__":
     #                                           Aircraft performance module                                              # 
     ######################################################################################################################
 
-        # Create the pycontrails flight object (and set EIs etc.)
-        fl = set_flight_parameters(sample)
+        # Create the pycontrails flight object 
+        altitude = 10900
+        fl = set_flight_parameters(sample, df_aircraft, altitude, i)
 
     ######################################################################################################################
     #                                     Advection model and input files module                                         # 
@@ -87,56 +90,66 @@ if __name__ == "__main__":
         except: pass
 
         print("Running DryAdvection model...\n")
-        ds, ds_temp, pressure = advect(met, met_temp, fl)
+        ds, ds_temp, pressure, temperature, flag = advect(met, met_temp, fl)
 
-        try: os.remove(f"mets/input{i}.nc")
-        except FileNotFoundError: pass
-        try: os.remove(f"mets/input_temp{i}.nc")
-        except FileNotFoundError: pass
+        if flag == False:
 
-        ds.to_netcdf(f"mets/input{i}.nc")
-        ds_temp.to_netcdf(f"mets/input_temp{i}.nc")
+            try: os.remove(f"mets/input{i}.nc")
+            except FileNotFoundError: pass
+            try: os.remove(f"mets/input_temp{i}.nc")
+            except FileNotFoundError: pass
 
-        # Generate the .yaml input dictionary and output to file
-        d = generate_yaml_d(identifier, sample, fl, float(pressure/100))
-        with open(f"yamls/input{i}.yaml", "w") as yaml_file:
-            yaml.dump(d, yaml_file, default_flow_style=False, sort_keys=False)
+            ds.to_netcdf(f"mets/input{i}.nc")
+            ds_temp.to_netcdf(f"mets/input_temp{i}.nc")
+
+            properties_dict = get_aircraft_properties(sample, df_aircraft, temperature)
+
+            # Generate the .yaml input dictionary and output to file
+            d = generate_yaml_d(identifier, sample, fl, float(pressure/100), properties_dict)
+            with open(f"yamls/input{i}.yaml", "w") as yaml_file:
+                yaml.dump(d, yaml_file, default_flow_style=False, sort_keys=False)
 
     ######################################################################################################################
     #                                               APCEMM module                                                        # 
     ######################################################################################################################
 
-        try: os.makedirs("APCEMM_results")
-        except: pass
+            try: os.makedirs("APCEMM_results")
+            except: pass
 
-        apcemm_file_path = "../../build/APCEMM"
-        call(["./../../build/APCEMM", f"yamls/input{i}.yaml"])#
+            apcemm_file_path = "../../build/APCEMM"
+            call(["./../../build/APCEMM", f"yamls/input{i}.yaml"])#
 
-        print("APCEMM done")
+            print("APCEMM done")
 
     ######################################################################################################################
     #                                          Radiative forcing module                                                  # 
     ######################################################################################################################
 
-        apce_data = read_apcemm_data(f"APCEMM_results/APCEMM_out_{i}/")
+            apce_data = read_apcemm_data(f"APCEMM_results/APCEMM_out_{i}/")
 
-        try:
-            with open(f"APCEMM_results/APCEMM_out_{i}/status_case0", "r") as f:
-                status = f.readline()
+            try:
+                with open(f"APCEMM_results/APCEMM_out_{i}/status_case0", "r") as f:
+                    status = f.readline()
 
-            if (str(status) == "NoPersistence\n"):
-                status = "No persistence "
-                print("No persistence\n")
+                if (str(status) == "NoPersistence\n"):
+                    status = "No persistence "
+                    print("No persistence\n")
+                    j_per_m = 0
+                    age = 0
+                else:
+                    j_per_m, age = calc_sample(apce_data, sample, met_albedo, ds_temp)
+                    status = "Contrail formed"
+
+            except FileNotFoundError:
+                status = "Error          "
                 j_per_m = 0
                 age = 0
-            else:
-                j_per_m, age = calc_sample(apce_data, sample, met_albedo, ds_temp)
-                status = "Contrail formed"
+                continue
 
-        except FileNotFoundError:
+        else:
             status = "Error          "
             j_per_m = 0
             age = 0
-            continue
 
         write_output(sample, j_per_m, age, status)
+    

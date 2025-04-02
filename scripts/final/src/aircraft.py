@@ -2,28 +2,82 @@ import numpy as np
 import pandas as pd
 from pycontrails import Flight
 
+"""def set_flight_parameters(sample, df_aircraft, altitude):
 
-def set_flight_parameters(sample):
-
-    # FOR DEVELOPMENT ONLY
+    flight_id = sample.index
+    aircraft_type = sample["aircraft type"]
+    
     flight_attrs = {
-        "flight_id": "test",
-        "true_airspeed": 230,
-        "thrust": 0.22, 
-        "nvpm_ei_n": 1.897462e15, 
-        "aircraft_type": sample["aircraft type"],
-        "wingspan": 48,
-        "n_engine": 2,
+        "flight_id" : flight_id,
+        "aircraft_type" : aircraft_type,
     }
 
     df = pd.DataFrame()
     df["longitude"]          = np.linspace(sample["longitude"], sample["longitude"], 1)
     df["latitude"]           = np.linspace(sample["latitude"], sample["latitude"], 1)
-    df["altitude"]           = np.linspace(10900, 10900, 1)
-    df["engine_efficiency"]  = np.linspace(0.34, 0.34, 1)
-    df["fuel_flow"]          = np.linspace(2.1, 2.1, 1)  # kg/s
-    df["aircraft_mass"]      = np.linspace(154445, 154445, 1)  # kg
+    df["altitude"]           = np.linspace(altitude, altitude, 1)
+    df["time"]               = pd.date_range(sample["time"], sample["time"], periods=1)
+
+    return Flight(df, attrs=flight_attrs)"""
+
+def set_flight_parameters(sample, df_aircraft, altitude, i):
+
+    flight_id = i
+    aircraft_type = sample["aircraft type"]
+
+    flight_attrs = {
+        "flight_id" : flight_id,
+        "aircraft_type" : aircraft_type,
+    }
+
+    df = pd.DataFrame()
+    df["longitude"]          = np.linspace(sample["longitude"], sample["longitude"], 1)
+    df["latitude"]           = np.linspace(sample["latitude"], sample["latitude"], 1)
+    df["altitude"]           = np.linspace(altitude, altitude, 1)
     df["time"]               = pd.date_range(sample["time"], sample["time"], periods=1)
 
     return Flight(df, attrs=flight_attrs)
 
+
+def get_aircraft_properties(sample, df_aircraft, temperature):
+
+    LCV = 43.1e6        # for jet fuel
+
+    aircraft_type = sample["aircraft type"]
+
+
+    efficiency = df_aircraft.loc[aircraft_type, "eta"]
+    design_mach = df_aircraft.loc[aircraft_type, "Design_Mach"]
+    thrust = df_aircraft.loc[aircraft_type, "Thrust"]
+    nvPM_EI_m = df_aircraft.loc[aircraft_type, "Soot-g/kg"]
+    mass = df_aircraft.loc[aircraft_type, "mass"]
+    wingspan = df_aircraft.loc[aircraft_type, "wingspan"]
+
+    air_speed = design_mach * np.sqrt(1.4*287*temperature)
+    fuel_flow_rate = thrust * air_speed / (efficiency * LCV)
+
+    properties_dict = {
+        "efficiency": efficiency,
+        "air_speed": air_speed,
+        "nvPM_EI_m": nvPM_EI_m,
+        "fuel_flow_rate": fuel_flow_rate,
+        "mass": mass,
+        "wingspan": wingspan
+    }
+
+    return properties_dict
+
+
+def clean_flight_data(df_samples, df_aircraft):
+
+    aircraft_types = df_aircraft.index.tolist()
+    df_samples = df_samples[df_samples["aircraft type"].isin(aircraft_types)]
+
+    return df_samples
+
+if __name__ == '__main__':
+
+    df_samples = pd.read_pickle("samples/samples.pkl")
+    df_aircraft = pd.read_csv('flight_data/aircraft.csv', index_col = 0)
+
+    df_samples = (clean_flight_data(df_samples,df_aircraft))

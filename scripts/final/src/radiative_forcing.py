@@ -133,7 +133,7 @@ def write_cloud_files(contrail_IWCs_avg, contrail_Eff_rads_avg, cloud_LWC_cols, 
             if max_eff_rad > eff_rad_switch:
                 habit = "droxtal"
                 lower_limit = 9.48
-                upper_limit = 293.32
+                upper_limit = 293.1
 
             else:
                 habit = "rough-aggregate"
@@ -203,7 +203,7 @@ def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, ti
         with open(inpThermal, "w") as file:
 
             file.write(f"data_files_path {data_files_path}\n")
-            file.write(f"atmosphere_file {atmosphere_file_path}\n")
+            #file.write(f"atmosphere_file {atmosphere_file_path}\n")
             file.write("source thermal\n")
             file.write("\n")
 
@@ -233,7 +233,7 @@ def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, ti
         with open(inpSolar, "w") as file:
 
             file.write(f"data_files_path {data_files_path}\n")
-            file.write(f"atmosphere_file {atmosphere_file_path}\n")
+            #file.write(f"atmosphere_file {atmosphere_file_path}\n")
             file.write(f"source solar {solar_source_path}\n")
             file.write("\n")
 
@@ -263,7 +263,7 @@ def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, ti
         with open(inp_clearThermal, "w") as file:
 
             file.write(f"data_files_path {data_files_path}\n")
-            file.write(f"atmosphere_file {atmosphere_file_path}\n")
+            #file.write(f"atmosphere_file {atmosphere_file_path}\n")
             file.write("source thermal\n")
             file.write("\n")
 
@@ -293,7 +293,7 @@ def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, ti
         with open(inp_clearSolar, "w") as file:
 
             file.write(f"data_files_path {data_files_path}\n")
-            file.write(f"atmosphere_file {atmosphere_file_path}\n")
+            #file.write(f"atmosphere_file {atmosphere_file_path}\n")
             file.write(f"source solar {solar_source_path}\n")
             file.write("\n")
 
@@ -519,14 +519,6 @@ def calc_sample(apce_data, sample, met_albedo, ds_temp):
         for i in range(0,round((1-max_cloud_cover.values) * samples)-1):
             cloud_LWC_cols[list_of_ints[i]][:] = 0
             cloud_IWC_cols[list_of_ints[i]][:] = 0
-
-
-        # Call write_cloud_files with the info:
-        # 1. Domain properties (ys)
-        # 2. Contrail properties (IWCs, Eff_rads, age)
-        # 3. Natural cloud properties (IWCs, LWCs) N.B. need to do check regarding assumptions of habits for ice clouds
-        #                                          N.B. need to cut off the domains at a suitable height e.g. 9 km. we could
-        #                                               then overwrite this with the contrail IWCs so that we are sure to be OK?
 
         habit = write_cloud_files(contrail_IWCs_avg, contrail_Eff_rads_avg, cloud_LWC_cols, cloud_IWC_cols, ys, cloud_ys, age)
 

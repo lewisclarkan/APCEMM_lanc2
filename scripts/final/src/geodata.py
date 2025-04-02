@@ -24,7 +24,7 @@ def open_dataset(sample):
 
     s_index, s_longitude, s_latitude, s_altitude, s_time, s_type = sample
 
-    max_life = 12
+    max_life = 24
 
     time = (str(s_time), str(s_time + np.timedelta64(max_life, 'h')))
 
@@ -55,7 +55,7 @@ def get_temperature_and_clouds_met(sample):
 
     s_index, s_longitude, s_latitude, s_altitude, s_time, s_type = sample
 
-    max_life = 12
+    max_life = 24
 
     time = (str(s_time), str(s_time + np.timedelta64(max_life, 'h')))
 
@@ -563,7 +563,7 @@ def advect(met, met_temp, fl):
 
     dt_input_met = np.timedelta64(6, "m")
     dt_integration = np.timedelta64(2, 'm')
-    max_age = np.timedelta64(12, 'h')
+    max_age = np.timedelta64(24, 'h')
 
     params = {
         "dt_integration": dt_integration,
@@ -580,7 +580,11 @@ def advect(met, met_temp, fl):
     # This ensures that for DryAdvection models that terminate early, whilst generating the APCEMM
     # input files we do not get NaN errors (that are found in the final entry of dry_adv_df) when
     # the DryAdvection model terminates early. 
-    max_age = list(dry_adv_df["time"].values)[-2] - dry_adv_df["time"].min()
+    try:
+        max_age = list(dry_adv_df["time"].values)[-2] - dry_adv_df["time"].min()
+    except IndexError:
+        return 1, 1, 1, 1, True
+        
 
     air_pressure = dry_adv_df["air_pressure"].values
     lon = dry_adv_df["longitude"].values
@@ -633,7 +637,9 @@ def advect(met, met_temp, fl):
     
     ds_temp = fix_dataset(ds_temp)
 
-    return ds, ds_temp, air_pressure[0]
+    temperature = ds["temperature"].sel(time=0,altitude=10.9,method='nearest').values
+
+    return ds, ds_temp, air_pressure[0], temperature, False
 
 
 """if __name__ == '__main__':

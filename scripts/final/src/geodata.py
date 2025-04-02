@@ -24,7 +24,7 @@ def open_dataset(sample):
 
     s_index, s_longitude, s_latitude, s_altitude, s_time, s_type = sample
 
-    max_life = 24
+    max_life = 12
 
     time = (str(s_time), str(s_time + np.timedelta64(max_life, 'h')))
 
@@ -55,7 +55,7 @@ def get_temperature_and_clouds_met(sample):
 
     s_index, s_longitude, s_latitude, s_altitude, s_time, s_type = sample
 
-    max_life = 24
+    max_life = 12
 
     time = (str(s_time), str(s_time + np.timedelta64(max_life, 'h')))
 

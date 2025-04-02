@@ -18,6 +18,13 @@ def calcTotalDistance(flights) -> float:
 
     return total_distance
 
+def preprocessFlights(flights, n_flights):
+    with alive_bar(n_flights) as bar:
+        for i in range(len(flights)):
+            flights[i] = flights[i].resample_and_fill('1min')
+            bar()
+    return flights
+
 def samplePoint(flights, total_distance):
     """Generate a random index i for flight index, and j 
     for segment index. Inputs are a list of pycontrails flight objects"""
@@ -36,7 +43,6 @@ def samplePoint(flights, total_distance):
             i += 1
 
     remaining_dist = sample_distance - cumulative_distance
-    flights[i] = flights[i].resample_and_fill('1min')
     lengths = flights[i].segment_length()
     
     flag = True
@@ -81,13 +87,16 @@ def generateDfSamples(df, n_samples, n_flights):
 
     total_distance = calcTotalDistance(flights)
 
+    print(f"\nTotal distance flown in dataset was {total_distance/1000:.2f} km.")
+
+    print("\nPreprocessing flights...")
+    flights = preprocessFlights(flights, n_flights)
+
     print("\nTaking samples...")
     with alive_bar(n_samples) as bar:
         for i in range(0, n_samples):
             samples[i] = samplePoint(flights, total_distance)
             bar()
-
-    sample_indices = np.arange(0, n_samples, 1)
 
     longitudes   = np.empty(n_samples)
     latitudes    = np.empty(n_samples)
@@ -95,7 +104,7 @@ def generateDfSamples(df, n_samples, n_flights):
     times        = np.empty(n_samples, dtype = 'datetime64[s]')
     aircrafts    = np.empty(n_samples, dtype = object)
 
-    print("\nDetermining sample characteristics...")
+    print("\nDetermining sample characteristics...\n")
     with alive_bar(n_samples) as bar:
         for i in range(0, n_samples):
             longitudes[i]   = flights[samples[i][0]]['longitude'][samples[i][1]]
@@ -105,8 +114,15 @@ def generateDfSamples(df, n_samples, n_flights):
             aircrafts[i]    = flights[samples[i][0]].attrs['aircraft_type']
             bar()
 
-    print(f"\nTotal distance flown in dataset was {total_distance/1000:.2f} km.\n")
-
-    df_samples = pd.DataFrame(data = np.array([sample_indices, longitudes, latitudes, altitudes, times, aircrafts]).transpose(), columns = ["index", "longitude", "latitude", "altitude", "time", "aircraft type"])
+    df_samples = pd.DataFrame({
+        "index": np.arange(0, n_samples, 1).astype(np.int32),
+        "longitude": longitudes.astype(np.float32),
+        "latitude": latitudes.astype(np.float32),
+        "altitude": altitudes.astype(np.float32),
+        "time": times,
+        "aircraft type": pd.Categorical(aircrafts),
+    })
 
     return df_samples
+
+    #return

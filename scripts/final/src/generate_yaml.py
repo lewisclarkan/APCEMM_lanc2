@@ -5,11 +5,11 @@ def generate_yaml_d(identifier, sample, fl, pressure, properties_dict):
 
     met_file_path = f"../mets/input{identifier}.nc"
 
-    longitude = sample["longitude"]
-    latitude = sample["latitude"]
+    longitude = float(sample["longitude"])
+    latitude = float(sample["latitude"])
 
-    emission_day = sample["time"].day
-    emission_time = sample["time"].hour
+    emission_day = int(sample["time"].day)
+    emission_time = int(sample["time"].hour)
 
     output_folder = f'../APCEMM_results/APCEMM_out_{identifier}/'
     input_background_condition = '../../../input_data/init.txt'

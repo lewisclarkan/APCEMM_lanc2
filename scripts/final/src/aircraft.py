@@ -71,7 +71,7 @@ def get_aircraft_properties(sample, df_aircraft, temperature):
 def clean_flight_data(df_samples, df_aircraft):
 
     aircraft_types = df_aircraft.index.tolist()
-    df_samples = df_samples[df_samples["aircraft type"].isin(aircraft_types)]
+    df_samples = df_samples[df_samples["typecode"].isin(aircraft_types)]
 
     return df_samples
 

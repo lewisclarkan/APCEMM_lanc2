@@ -1,9 +1,7 @@
 import pandas as pd
 from pycontrails import Flight
 
-def generate_yaml_d(identifier, sample, fl, pressure, properties_dict):
-
-    met_file_path = f"../mets/input{identifier}.nc"
+def generate_yaml_d(identifier, sample, fl, pressure, properties_dict, met_file_path, path):
 
     longitude = float(sample["longitude"])
     latitude = float(sample["latitude"])
@@ -11,9 +9,9 @@ def generate_yaml_d(identifier, sample, fl, pressure, properties_dict):
     emission_day = int(sample["time"].day)
     emission_time = int(sample["time"].hour)
 
-    output_folder = f'../APCEMM_results/APCEMM_out_{identifier}/'
-    input_background_condition = '../../../input_data/init.txt'
-    intput_engine_emissions = '../../../input_data/ENG_EI.txt'
+    output_folder = path
+    input_background_condition = '../../../../../../input_data/init.txt'
+    intput_engine_emissions = '../../../../../../input_data/ENG_EI.txt'
     force_seed_value = 'F'
     seed_value = 0
 

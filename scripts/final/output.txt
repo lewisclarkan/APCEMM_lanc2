@@ -1,3 +1,0 @@
-Index  Status            Latitude  Longitude  Altitude  Time                   Age    J_per_m
-46     No persistence    64.94     83.32      10668.0   2019-01-01 00:49:00    0     0.00
-33     Error             37.25     115.39      10668.0   2019-01-01 01:39:00    0     0.00

@@ -34,6 +34,8 @@ unittest
 *.pkl
 *.DAT
 *.nc
+*.yaml
+*.INP
 
 # Logs #
 ########

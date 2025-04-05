@@ -2,24 +2,6 @@ import numpy as np
 import pandas as pd
 from pycontrails import Flight
 
-"""def set_flight_parameters(sample, df_aircraft, altitude):
-
-    flight_id = sample.index
-    aircraft_type = sample["aircraft type"]
-    
-    flight_attrs = {
-        "flight_id" : flight_id,
-        "aircraft_type" : aircraft_type,
-    }
-
-    df = pd.DataFrame()
-    df["longitude"]          = np.linspace(sample["longitude"], sample["longitude"], 1)
-    df["latitude"]           = np.linspace(sample["latitude"], sample["latitude"], 1)
-    df["altitude"]           = np.linspace(altitude, altitude, 1)
-    df["time"]               = pd.date_range(sample["time"], sample["time"], periods=1)
-
-    return Flight(df, attrs=flight_attrs)"""
-
 def set_flight_parameters(sample, df_aircraft, altitude, i):
 
     flight_id = i

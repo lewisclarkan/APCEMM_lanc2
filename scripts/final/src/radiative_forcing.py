@@ -478,7 +478,7 @@ def calc_sample(apce_data, sample, met_albedo, ds_temp, path_start):
 
         # Set the albedo value based on the albedo dataset - this assumes albedo is 
         # not a function of time in order to reduce the number of dataset downloads
-        albedo = met_albedo['fal'].data.sel(longitude=sample["longitude"], latitude=sample["latitude"], time ='2024-03-01T13:00:00.000000000', level=-1, method='nearest').values
+        albedo = met_albedo['fal'].sel(longitude=sample["longitude"], latitude=sample["latitude"], time ='2024-03-01T13:00:00.000000000', level=-1, method='nearest').values
        
         # Get the dataset for clouds and temperature for the whole atmosphere along
         # the advected path of the contrail

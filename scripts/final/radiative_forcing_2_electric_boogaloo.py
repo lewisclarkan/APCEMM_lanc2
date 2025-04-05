@@ -5,6 +5,7 @@ import pickle
 import xarray as xr
 
 from src.radiative_forcing import read_apcemm_data, apce_data_struct, calc_sample
+from src.file_management import write_output_header_contrail, write_output_contrail
 
 if __name__ == "__main__":
     
@@ -19,15 +20,13 @@ if __name__ == "__main__":
     month = arg.month
 
     ds = xr.load_dataset('gribs/albedo.grib', engine="cfgrib")
-    ds = ds.expand_dims({'level':[-1]})
-
-    met_albedo = ds
+    met_albedo = ds.expand_dims({'level':[-1]})
 
     df = pd.read_csv(f"outputs/{month}_{start_index}_{end_index}.txt", sep = ",", header = 0)
     
-    print(df)
-
     df.columns = ["Index", "Status", "Latitude", "Longitude", "Altitude", "Time", "Age"]
+
+    write_output_header_contrail(f"outputs/{month}_{start_index}_{end_index}_contrail.txt")
 
     for i in range(1, df.shape[0]):
 
@@ -46,4 +45,4 @@ if __name__ == "__main__":
 
             j_per_m, age = calc_sample(apce_data, sample, met_albedo, ds_temp, path_start)
 
-            print(j_per_m, age)
+            write_output_contrail(f"outputs/{month}_{start_index}_{end_index}_contrail.txt", sample, df.iloc[i, 1], age, j_per_m)

@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import argparse
 import pickle
+import xarray as xr
 
 from src.radiative_forcing import read_apcemm_data, apce_data_struct, calc_sample
 from src.geodata import get_albedo
@@ -18,7 +19,10 @@ if __name__ == "__main__":
     end_index = arg.end
     month = arg.month
 
-    met_albedo = get_albedo('gribs/albedo.grib')
+    ds = xr.load_dataset('gribs/albedo.grib', engine="cfgrib")
+    ds = ds.expand_dims({'level':[-1]})
+
+    met_albedo = ds
 
     df = pd.read_csv(f"outputs/{month}_{start_index}_{end_index}.txt", sep = " ", header = None)
     df.columns = ["Index", "Status", "Latitude", "Longitude", "Altitude", "Time", "Age"]

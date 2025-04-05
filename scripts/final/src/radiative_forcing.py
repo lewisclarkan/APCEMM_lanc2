@@ -103,21 +103,23 @@ def adjust_altitude(IWCs_avg, Eff_rads_avg, ys, base_altitude):
 
     return IWCs_avg, Eff_rads_avg, ys
 
-def write_cloud_files(contrail_IWCs_avg, contrail_Eff_rads_avg, cloud_LWC_cols, cloud_IWC_cols, ys, cloud_ys, age):
+def write_cloud_files(contrail_IWCs_avg, contrail_Eff_rads_avg, cloud_LWC_cols, cloud_IWC_cols, ys, cloud_ys, age, path_start):
+
+    clouds_dir = (f"./{path_start}/clouds")
 
     habit = get_ice_habit(age)
 
     try: 
-        os.makedirs("clouds")
+        os.makedirs(clouds_dir)
     except:
         pass
 
     for i in range(0,len(contrail_IWCs_avg)):
 
         indices = []
-        file_name = (f"./clouds/ice_cloud{i}.DAT")
-        file_name_empty = (f"./clouds/ice_cloud_empty{i}.DAT")
-        file_name_water = (f"./clouds/water_cloud{i}.DAT")
+        file_name = (f"./{path_start}/clouds/ice_cloud{i}.DAT")
+        file_name_empty = (f"./{path_start}/clouds/ice_cloud_empty{i}.DAT")
+        file_name_water = (f"./{path_start}/clouds/water_cloud{i}.DAT")
 
         eff_rad_switch = 80 # CURRENTLY THIS IS ARBITRARY
 
@@ -177,33 +179,32 @@ def write_cloud_files(contrail_IWCs_avg, contrail_Eff_rads_avg, cloud_LWC_cols, 
 
     return habit
 
-def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, time, latitude, longitude, albedo, ice_habit, xs):
+def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, time, latitude, longitude, albedo, ice_habit, xs, path_start):
 
     solver = "disort"
     correlated_k = "fu"
     ice_parameterisation = "yang"
 
     try: 
-        os.makedirs("inps")
+        os.makedirs(f"./{path_start}/inps")
     except:
         pass
 
     for i in range(0, len(xs)):
 
-        ice_clouds = (f"./clouds/ice_cloud{i}.DAT")
-        empty_ice_clouds = (f"./clouds/ice_cloud_empty{i}.DAT")
-        water_clouds = (f"./clouds/water_cloud{i}.DAT")
+        ice_clouds = (f"./{path_start}/clouds/ice_cloud{i}.DAT")
+        empty_ice_clouds = (f"./{path_start}/clouds/ice_cloud_empty{i}.DAT")
+        water_clouds = (f"./{path_start}/clouds/water_cloud{i}.DAT")
 
-        inpThermal = (f"./inps/runThermal{i}.DAT")
-        inpSolar   = (f"./inps/runSolar{i}.DAT")
+        inpThermal = (f"./{path_start}/inps/runThermal{i}.DAT")
+        inpSolar   = (f"./{path_start}/inps/runSolar{i}.DAT")
 
-        inp_clearThermal    = (f"./inps/run_clearThermal{i}.DAT")
-        inp_clearSolar      = (f"./inps/run_clearSolar{i}.DAT")
+        inp_clearThermal    = (f"./{path_start}/inps/run_clearThermal{i}.DAT")
+        inp_clearSolar      = (f"./{path_start}/inps/run_clearSolar{i}.DAT")
 
         with open(inpThermal, "w") as file:
 
             file.write(f"data_files_path {data_files_path}\n")
-            #file.write(f"atmosphere_file {atmosphere_file_path}\n")
             file.write("source thermal\n")
             file.write("\n")
 
@@ -233,7 +234,6 @@ def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, ti
         with open(inpSolar, "w") as file:
 
             file.write(f"data_files_path {data_files_path}\n")
-            #file.write(f"atmosphere_file {atmosphere_file_path}\n")
             file.write(f"source solar {solar_source_path}\n")
             file.write("\n")
 
@@ -263,7 +263,6 @@ def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, ti
         with open(inp_clearThermal, "w") as file:
 
             file.write(f"data_files_path {data_files_path}\n")
-            #file.write(f"atmosphere_file {atmosphere_file_path}\n")
             file.write("source thermal\n")
             file.write("\n")
 
@@ -293,7 +292,6 @@ def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, ti
         with open(inp_clearSolar, "w") as file:
 
             file.write(f"data_files_path {data_files_path}\n")
-            #file.write(f"atmosphere_file {atmosphere_file_path}\n")
             file.write(f"source solar {solar_source_path}\n")
             file.write("\n")
 
@@ -316,32 +314,31 @@ def write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, ti
             file.write(f"wc_file 1D {water_clouds}\n")
             file.write("\n")
 
-
             file.write("zout TOA\n")
             file.write("output_process sum\n")
             file.write("quiet\n")
 
-def run_libradtran(xs, b_nighttime):
+def run_libradtran(xs, b_nighttime, path_start):
 
     try: 
-        os.makedirs("result")
+        os.makedirs(f"./{path_start}/result")
     except:
         pass
 
     for i in range(0, len(xs)):
     
-        clouds = (f"./clouds/cloud{i}.DAT")
+        clouds = (f"./{path_start}/clouds/cloud{i}.DAT")
 
-        inpThermal = (f"./inps/runThermal{i}.DAT")
-        inpSolar   = (f"./inps/runSolar{i}.DAT")
+        inpThermal = (f"./{path_start}/inps/runThermal{i}.DAT")
+        inpSolar   = (f"./{path_start}/inps/runSolar{i}.DAT")
 
-        inp_clearThermal    = (f"./inps/run_clearThermal{i}.DAT")
-        inp_clearSolar      = (f"./inps/run_clearSolar{i}.DAT")
+        inp_clearThermal    = (f"./{path_start}/inps/run_clearThermal{i}.DAT")
+        inp_clearSolar      = (f"./{path_start}/inps/run_clearSolar{i}.DAT")
 
-        diector1 = (f"./result/result_conThermal{i}.DAT")
-        diector2 = (f"./result/result_conSolar{i}.DAT")
-        diector3 = (f"./result/result_clrThermal{i}.DAT")
-        diector4 = (f"./result/result_clrSolar{i}.DAT")
+        diector1 = (f"./{path_start}/result/result_conThermal{i}.DAT")
+        diector2 = (f"./{path_start}/result/result_conSolar{i}.DAT")
+        diector3 = (f"./{path_start}/result/result_clrThermal{i}.DAT")
+        diector4 = (f"./{path_start}/result/result_clrSolar{i}.DAT")
 
         # If it is daytime, we need to run the solar cases
         if (not b_nighttime):
@@ -451,7 +448,7 @@ def get_ice_habit(age):
 
     return ice_habit
 
-def calc_sample(apce_data, sample, met_albedo, ds_temp):
+def calc_sample(apce_data, sample, met_albedo, ds_temp, path_start):
 
     ds_t = apce_data.ds_t
     t = apce_data.t
@@ -520,11 +517,11 @@ def calc_sample(apce_data, sample, met_albedo, ds_temp):
             cloud_LWC_cols[list_of_ints[i]][:] = 0
             cloud_IWC_cols[list_of_ints[i]][:] = 0
 
-        habit = write_cloud_files(contrail_IWCs_avg, contrail_Eff_rads_avg, cloud_LWC_cols, cloud_IWC_cols, ys, cloud_ys, age)
+        habit = write_cloud_files(contrail_IWCs_avg, contrail_Eff_rads_avg, cloud_LWC_cols, cloud_IWC_cols, ys, cloud_ys, age, path_start)
 
-        write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, sample_time_format, latitude, longitude, albedo, habit, xs)
+        write_inp_files(atmosphere_file_path, data_files_path, solar_source_path, sample_time_format, latitude, longitude, albedo, habit, xs, path_start)
 
-        total_w_per_m = run_libradtran(xs, b_nighttime)
+        total_w_per_m = run_libradtran(xs, b_nighttime, path_start)
         total_w_per_m_s.append(total_w_per_m)
         
         j = j + 1

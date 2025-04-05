@@ -38,8 +38,7 @@ if __name__ == "__main__":
         path_start = (f"results/month_{month}/{start_index}_{end_index}/sample_{i}")
 
         if df.iloc[i, 1] == "Contrail_formed":
-            with open(apce_data_file_name, "rb") as f:
-                apce_data = pickle.load(f)
+            apce_data = read_apcemm_data(f"./results/month_{month}/{start_index}_{end_index}/APCEMM_results/APCEMM_out_{i}/")
             with open(sample_file_name, "rb") as f:
                 sample = pickle.load(f)
             with open(ds_temp_file_name, "rb") as f:

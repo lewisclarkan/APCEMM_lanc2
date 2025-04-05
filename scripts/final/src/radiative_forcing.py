@@ -1,10 +1,7 @@
 import os
 import xarray as xr
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
-import time
-import pymap3d as pm
 from pysolar.solar import *
 
 
@@ -358,8 +355,8 @@ def run_libradtran(xs, b_nighttime, path_start):
     for i in range(0, len(xs)):
 
         if (not b_nighttime):
-            diector2 = (f"./result/result_conSolar{i}.DAT")
-            diector4 = (f"./result/result_clrSolar{i}.DAT")
+            diector2 = (f"./{path_start}/result/result_conSolar{i}.DAT")
+            diector4 = (f"./{path_start}/result/result_clrSolar{i}.DAT")
 
             df2 = pd.read_csv(diector2, header=None, sep ='\s+')
             conSolar_results.append(df2)
@@ -367,8 +364,8 @@ def run_libradtran(xs, b_nighttime, path_start):
             df4 = pd.read_csv(diector4, header=None, sep ='\s+')
             clrSolar_results.append(df4)
 
-        diector1 = (f"./result/result_conThermal{i}.DAT")
-        diector3 = (f"./result/result_clrThermal{i}.DAT")
+        diector1 = (f"./{path_start}/result/result_conThermal{i}.DAT")
+        diector3 = (f"./{path_start}/result/result_clrThermal{i}.DAT")
 
         df = pd.read_csv(diector1, header=None, sep ='\s+')
         conThermal_results.append(df)

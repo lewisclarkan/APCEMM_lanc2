@@ -39,7 +39,9 @@ if __name__ == "__main__":
     # Prepare the output files
     try: os.makedirs(f"results/month_{month}/{start_index}_{end_index}")
     except: pass
-
+    try: os.makedirs(f"outputs")
+    except: pass
+    
     file_name =  (f"outputs/{month}_{start_index}_{end_index}.txt")
     write_output_header(file_name)
 
@@ -106,9 +108,8 @@ if __name__ == "__main__":
 
                 # If the contrail did not persist, set the results and write them to the output file
                 if (str(status) == "NoPersistence\n"):
-                    status = "No persistence "
-                    print("No persistence\n")
-                    age=0
+                    status = "No persistence"
+                    print("No_persistence\n")
 
                 # If the conrail persisted, write the output files.
                 else:
@@ -126,19 +127,16 @@ if __name__ == "__main__":
                     with open(ds_temp_file_name, "wb") as f:
                         pickle.dump(ds_temp, f)
 
-                    status = "Contrail formed"
+                    status = "Contrail_formed"
 
             # Perform error handling
             except FileNotFoundError:
-                status = "Error          "
-                age = 0
+                status = "Error"
                 continue
 
         # Perform error handling
         else:
-            status = "Error          "
-            j_per_m = 0
-            age = 0
+            status = "Error"
 
-        write_output(file_name, sample, age, status)
+        write_output(file_name, sample, status)
     

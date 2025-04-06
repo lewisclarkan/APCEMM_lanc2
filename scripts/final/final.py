@@ -48,13 +48,30 @@ if __name__ == "__main__":
     # Start the main loop
     for i in range(start_index, end_index):
 
+        success1 = False
+        success2 = False
+
         identifier = i
         sample = df_samples.iloc[i,:]
 
         # Download and open the low and high resolution datasets
         print("Downloading and opening dataset...\n")
-        met = open_dataset(sample)
-        met_temp = get_temperature_and_clouds_met(sample)
+
+        while not success1:
+            try:
+                met = open_dataset(sample)
+                success1 = True
+            except (OSError, BlockingIOError) as e:
+                print(f"Error opening dataset for sample {i}: {e}")
+                success1 = False
+
+        while not success2:
+            try:
+                met_temp = get_temperature_and_clouds_met(sample)
+                success2 = True
+            except (OSError, BlockingIOError) as e:
+                print(f"Error opening temperature dataset for sample {i}: {e}")
+                success2 = False
 
         # Create the flight object and set its parameters
         altitude = 10900

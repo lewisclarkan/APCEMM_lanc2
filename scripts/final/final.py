@@ -62,7 +62,7 @@ if __name__ == "__main__":
                 met = open_dataset(sample)
                 success1 = True
             except (OSError, BlockingIOError) as e:
-                print(f"Error opening dataset for sample {i}: {e}")
+                #print(f"Error opening dataset for sample {i}: {e}")
                 success1 = False
 
         while not success2:
@@ -70,7 +70,7 @@ if __name__ == "__main__":
                 met_temp = get_temperature_and_clouds_met(sample)
                 success2 = True
             except (OSError, BlockingIOError) as e:
-                print(f"Error opening temperature dataset for sample {i}: {e}")
+                #print(f"Error opening temperature dataset for sample {i}: {e}")
                 success2 = False
 
         # Create the flight object and set its parameters
